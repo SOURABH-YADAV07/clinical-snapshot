@@ -14,6 +14,14 @@ export interface PatientSummary {
   address: string | null;
 }
 
+export interface PatientListItem {
+  id: string;
+  name: string | null;
+  birth_date: string | null;
+  is_canonical: boolean;
+  note: string | null;
+}
+
 export interface EncounterSummary {
   id: string;
   type: CodeDisplay | null;

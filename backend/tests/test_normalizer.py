@@ -1,7 +1,7 @@
 import pytest
 
 from app.services.loader import load_fhir_bundle
-from app.services.normalizer import build_patient_summary
+from app.services.normalizer import build_patient_summary, list_patients
 
 
 @pytest.fixture(scope="module")
@@ -12,6 +12,23 @@ def bundle():
 @pytest.fixture(scope="module")
 def summary(bundle):
     return build_patient_summary(bundle, "patient-001")
+
+
+def test_list_patients_marks_canonical_and_duplicate(bundle):
+    items = list_patients(bundle)
+    assert [item.id for item in items] == ["patient-001", "patient-002"]
+    assert items[0].is_canonical is True
+    assert items[0].note is None
+    assert items[1].is_canonical is False
+    assert items[1].note is not None
+
+
+def test_non_canonical_patient_summary_still_works(bundle):
+    duplicate_summary = build_patient_summary(bundle, "patient-002")
+    assert duplicate_summary is not None
+    assert duplicate_summary.patient.id == "patient-002"
+    assert len(duplicate_summary.medications) == 1
+    assert duplicate_summary.medications[0].id == "medicationrequest-003"
 
 
 def by_id(items, resource_id):

@@ -30,6 +30,21 @@ def test_patient_summary_not_found():
     assert response.status_code == 404
 
 
+def test_list_patients():
+    response = client.get("/api/patients")
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["id"] for item in data] == ["patient-001", "patient-002"]
+
+    canonical = data[0]
+    assert canonical["is_canonical"] is True
+    assert canonical["note"] is None
+
+    duplicate = data[1]
+    assert duplicate["is_canonical"] is False
+    assert duplicate["note"] is not None
+
+
 def test_cors_allows_frontend_origin():
     response = client.options(
         "/api/patients/patient-001/summary",

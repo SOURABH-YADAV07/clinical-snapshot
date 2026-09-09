@@ -20,6 +20,7 @@ from app.models.summary import (
     MedicationSummary,
     ObservationSummary,
     ObservationValue,
+    PatientListItem,
     PatientSummary,
     PatientSummaryResponse,
     ProblemSummary,
@@ -79,6 +80,33 @@ def build_patient_summary(bundle_dict: dict[str, Any], patient_id: str) -> Patie
         observations=observations,
         data_quality=data_quality,
     )
+
+
+def list_patients(bundle_dict: dict[str, Any]) -> list[PatientListItem]:
+    resources = _parse_resources(bundle_dict)
+    items = []
+    for patient in resources["Patient"].values():
+        built = _build_patient(patient)
+        is_canonical = patient.id == CANONICAL_PATIENT_ID
+        note = (
+            None
+            if is_canonical
+            else (
+                f"Not selected as the canonical record (see {CANONICAL_PATIENT_ID}); "
+                "clinical resources attributed to it are not merged into the canonical summary."
+            )
+        )
+        items.append(
+            PatientListItem(
+                id=built.id,
+                name=built.name,
+                birth_date=built.birth_date,
+                is_canonical=is_canonical,
+                note=note,
+            )
+        )
+    items.sort(key=lambda item: (not item.is_canonical, item.id))
+    return items
 
 
 def _parse_resources(bundle_dict: dict[str, Any]) -> dict[str, dict[str, Any]]:

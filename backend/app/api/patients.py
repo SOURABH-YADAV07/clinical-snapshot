@@ -1,10 +1,15 @@
 from fastapi import APIRouter, HTTPException
 
-from app.models.summary import PatientSummaryResponse
+from app.models.summary import PatientListItem, PatientSummaryResponse
 from app.services.loader import load_fhir_bundle
-from app.services.normalizer import build_patient_summary
+from app.services.normalizer import build_patient_summary, list_patients
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
+
+
+@router.get("", response_model=list[PatientListItem])
+def get_patients() -> list[PatientListItem]:
+    return list_patients(load_fhir_bundle())
 
 
 @router.get("/{patient_id}/summary", response_model=PatientSummaryResponse)

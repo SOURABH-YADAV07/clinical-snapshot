@@ -19,6 +19,14 @@ class PatientSummary(BaseModel):
     address: str | None = None
 
 
+class PatientListItem(BaseModel):
+    id: str
+    name: str | None = None
+    birth_date: str | None = None
+    is_canonical: bool = True
+    note: str | None = None
+
+
 class ProblemSummary(BaseModel):
     id: str
     code: CodeDisplay

@@ -148,9 +148,9 @@ This section reflects the actual state of the repository, not the intended end s
 | FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
 | Summary response models (`models/summary.py`) | Complete — `PatientSummaryResponse` and per-section models, including `uncertainty_notes` and unresolved-reference fields |
 | Normalizer / reconciliation (`services/normalizer.py`) | Complete — implements all Resolved Decisions and the status-handling table |
-| Patient summary endpoint (`api/patients.py`) | Complete — `GET /api/patients/{patient_id}/summary`, 404 for unknown patients, CORS enabled for the Next.js dev origin |
-| Backend tests | Complete — 24 tests (normalizer + API), all passing against the real Bundle and a live server smoke test |
-| Frontend (Next.js) | Complete — TypeScript + App Router, all 7 sections, wired to the API; lint, build, and a live golden-path + error-path check all pass |
+| Patient summary endpoint (`api/patients.py`) | Complete — `GET /api/patients/{patient_id}/summary` (any patient ID, not just canonical), `GET /api/patients` (list), 404 for unknown patients, CORS enabled for the Next.js dev origin |
+| Backend tests | Complete — 27 tests (normalizer + API), all passing against the real Bundle and a live server smoke test |
+| Frontend (Next.js) | Complete — TypeScript + App Router, patient list landing page + per-patient snapshot route, all 7 snapshot sections, wired to the API; lint, build, and a live golden-path + error-path check all pass |
 
 ### Verified working
 
@@ -271,9 +271,11 @@ Clinical Snapshot/
 │
 ├── frontend/                     Next.js (App Router, TypeScript) clinical snapshot
 │   └── src/
-│       ├── app/                  Root layout, page, global styles
-│       ├── components/           PatientHeader, Problems, Medications, Allergies,
-│       │                         Encounters, Observations, DataQuality
+│       ├── app/
+│       │   ├── page.tsx           Patient list (landing page)
+│       │   └── patients/[patientId]/page.tsx   Per-patient snapshot
+│       ├── components/           PatientCard, PatientHeader, Problems, Medications,
+│       │                         Allergies, Encounters, Observations, DataQuality
 │       ├── lib/                  API client
 │       └── types/                TypeScript types mirroring the summary response
 │
@@ -514,7 +516,19 @@ The exact Pydantic response models will be finalized during implementation.
 
 # API
 
-The planned patient-summary endpoint is:
+Two endpoints are implemented:
+
+```http
+GET /api/patients
+```
+
+Returns a lightweight list of every `Patient` resource in the Bundle (`id`,
+`name`, `birth_date`, `is_canonical`, and a `note` explaining non-canonical
+records). This backs the frontend's patient-selection landing page — clicking
+a card opens that patient's full snapshot. It is not scoped to the assessment's
+original single-patient requirement; it was added afterward specifically so
+`patient-002` (the non-canonical duplicate) is reachable and visibly labeled
+as such, rather than only being discoverable by already knowing its ID.
 
 ```http
 GET /api/patients/{patient_id}/summary
@@ -526,14 +540,20 @@ Example:
 GET /api/patients/patient-001/summary
 ```
 
-The endpoint will:
+The endpoint:
 
-1. Validate the requested patient ID.
-2. Load the FHIR Bundle.
-3. Normalize the relevant data.
-4. Return the normalized patient summary.
-5. Handle invalid or unresolved references safely.
-6. Return an appropriate error when the requested patient cannot be found.
+1. Validates the requested patient ID.
+2. Loads the FHIR Bundle.
+3. Normalizes the relevant data.
+4. Returns the normalized patient summary.
+5. Handles invalid or unresolved references safely.
+6. Returns 404 when the requested patient cannot be found.
+
+This works for *any* patient ID present in the Bundle, not just the canonical
+one — `GET /api/patients/patient-002/summary` returns a valid (mostly empty)
+summary for the duplicate record, built the same way. The only
+canonical-patient-specific logic is the cross-patient medication flag (see
+*Resolved Decisions* #1), which only fires when summarizing `patient-001`.
 
 FastAPI's interactive documentation will also be available through:
 
@@ -672,13 +692,21 @@ cd backend
 pytest
 ```
 
-No tests exist yet; see *Implementation Status*.
+27 tests as of this writing (normalizer + API); see *Testing*.
 
 ## Frontend
 
-The frontend is a Next.js (App Router, TypeScript) app in `frontend/`. It fetches
-the patient summary server-side on each request, so it always reflects a live
-call to the backend rather than a cached/stale copy.
+The frontend is a Next.js (App Router, TypeScript) app in `frontend/`. Both
+routes fetch server-side on each request, so they always reflect a live call
+to the backend rather than a cached/stale copy:
+
+- `/` — a patient-selection landing page. Fetches `GET /api/patients` and
+  renders each as a clickable card; the non-canonical duplicate record is
+  visibly labeled rather than hidden.
+- `/patients/{patientId}` — the clinical snapshot for that patient (the
+  original single-page layout: demographics, problems, medications,
+  allergies, encounters, observations, data quality), with a link back to
+  the patient list.
 
 ```bash
 cd frontend
@@ -863,9 +891,9 @@ AI_USAGE.md
 
 - [x] README.md
 - [x] Provided FHIR data
-- [ ] AI_USAGE.md
-- [ ] Backend
-- [ ] Frontend
-- [ ] Tests
+- [x] AI_USAGE.md
+- [x] Backend
+- [x] Frontend
+- [x] Tests
 - [ ] No secrets or API keys committed
-- [ ] Application can be run using the documented instructions
+- [x] Application can be run using the documented instructions

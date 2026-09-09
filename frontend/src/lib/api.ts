@@ -1,8 +1,18 @@
-import type { PatientSummaryResponse } from "@/types/summary";
+import type { PatientListItem, PatientSummaryResponse } from "@/types/summary";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export class PatientNotFoundError extends Error {}
+
+export async function getPatientList(): Promise<PatientListItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/patients`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load patient list (status ${response.status})`);
+  }
+  return response.json();
+}
 
 export async function getPatientSummary(patientId: string): Promise<PatientSummaryResponse> {
   const response = await fetch(`${API_BASE_URL}/api/patients/${patientId}/summary`, {
