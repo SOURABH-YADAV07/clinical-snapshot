@@ -17,6 +17,8 @@ class PatientSummary(BaseModel):
     gender: str | None = None
     phone: str | None = None
     address: str | None = None
+    is_canonical: bool = True
+    note: str | None = None
 
 
 class PatientListItem(BaseModel):

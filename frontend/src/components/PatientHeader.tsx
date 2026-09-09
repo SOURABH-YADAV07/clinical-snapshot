@@ -18,7 +18,11 @@ function formatGender(gender: string | null): string | null {
 export function PatientHeader({ patient }: { patient: PatientSummary }) {
   return (
     <section className="card patient-header">
-      <h1>{patient.name ?? "Name unavailable"}</h1>
+      <h1>
+        {patient.name ?? "Name unavailable"}
+        {!patient.is_canonical && <span className="badge">NCR</span>}
+      </h1>
+      {!patient.is_canonical && patient.note && <p className="empty patient-header-note">{patient.note}</p>}
       <dl>
         <div>
           <dt>DOB</dt>

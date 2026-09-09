@@ -1,4 +1,6 @@
 import json
+import shutil
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -6,6 +8,10 @@ from app.services import loader
 from app.main import app
 
 client = TestClient(app)
+
+_ORIGINAL_BUNDLE_PATH = (
+    Path(__file__).resolve().parents[2] / "raw_data" / "scenario1_fhir_bundle[78].json"
+)
 
 
 def _bundle(entries):
@@ -26,7 +32,15 @@ def test_docs_available():
     assert response.status_code == 200
 
 
-def test_patient_summary_success():
+def _isolate_to_original_bundle(tmp_path, monkeypatch):
+    # Shared by tests that assert specifics of the known original dataset —
+    # must not be affected by real uploads that exist in raw_data/.
+    shutil.copy(_ORIGINAL_BUNDLE_PATH, tmp_path / _ORIGINAL_BUNDLE_PATH.name)
+    monkeypatch.setattr(loader, "RAW_DATA_DIR", tmp_path)
+
+
+def test_patient_summary_success(tmp_path, monkeypatch):
+    _isolate_to_original_bundle(tmp_path, monkeypatch)
     response = client.get("/api/patients/patient-001/summary")
     assert response.status_code == 200
     data = response.json()
@@ -36,12 +50,14 @@ def test_patient_summary_success():
     assert len(data["data_quality"]) == 11
 
 
-def test_patient_summary_not_found():
+def test_patient_summary_not_found(tmp_path, monkeypatch):
+    _isolate_to_original_bundle(tmp_path, monkeypatch)
     response = client.get("/api/patients/does-not-exist/summary")
     assert response.status_code == 404
 
 
-def test_list_patients():
+def test_list_patients(tmp_path, monkeypatch):
+    _isolate_to_original_bundle(tmp_path, monkeypatch)
     response = client.get("/api/patients")
     assert response.status_code == 200
     data = response.json()

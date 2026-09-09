@@ -36,15 +36,35 @@ logger = logging.getLogger(__name__)
 # and it carries richer demographics. patient-002 is never merged into it.
 CANONICAL_PATIENT_ID = "patient-001"
 
-# patient-002 is the one specific record that has been human-reviewed and
-# documented as an unmerged duplicate of the canonical patient. This is
-# deliberately NOT "every patient that isn't CANONICAL_PATIENT_ID" — now that
+# Documented, human-reviewed duplicate-record relationships: maps a
+# non-canonical patient id to the canonical id it is a duplicate of. This is
+# deliberately NOT "every patient that isn't some canonical id" — now that
 # bundles can be uploaded and merged (services/loader.py), that would flag
-# any newly-uploaded, entirely unrelated patient as a "duplicate" of Dorothy
-# Whitfield, which is false. There is no automated patient-matching in this
-# application; duplicate relationships are only ever asserted here after
-# human review, one id at a time.
-KNOWN_DUPLICATE_PATIENT_IDS: set[str] = {"patient-002"}
+# any newly-uploaded, entirely unrelated patient as a "duplicate", which is
+# false. There is no automated patient-matching in this application;
+# duplicate relationships are only ever asserted here after human review,
+# one pair at a time.
+KNOWN_DUPLICATE_PATIENT_IDS: dict[str, str] = {
+    # patient-002 duplicates patient-001 — see docs/README.md, "Resolved
+    # Decisions" #1 (the original assessment Bundle).
+    "patient-002": CANONICAL_PATIENT_ID,
+    # patient-216 duplicates patient-201 — a second worked example from the
+    # synthetic multi-patient test Bundle (test-data/), proving this
+    # mechanism generalizes beyond a single hardcoded pair. Inert unless a
+    # loaded Bundle actually contains patient-216.
+    "patient-216": "patient-201",
+}
+
+
+def _canonical_status(patient_id: str) -> tuple[bool, str | None]:
+    canonical_of = KNOWN_DUPLICATE_PATIENT_IDS.get(patient_id)
+    if canonical_of is None:
+        return True, None
+    note = (
+        f"Not selected as the canonical record (see {canonical_of}); "
+        "clinical resources attributed to it are not merged into the canonical summary."
+    )
+    return False, note
 
 _MIDNIGHT_UTC_RE = re.compile(r"T00:00:00Z$")
 _SNOMED_SHAPE_RE = re.compile(r"^\d{6,18}$")
@@ -92,11 +112,18 @@ def build_patient_summary(bundle_dict: dict[str, Any], patient_id: str) -> Patie
     allergies = _build_allergies(resources["AllergyIntolerance"], patient_id, data_quality)
     observations = _build_observations(resources["Observation"], patient_id, patient_encounters, data_quality)
 
-    if patient_id == CANONICAL_PATIENT_ID:
-        _flag_cross_patient_medications(resources["MedicationRequest"], data_quality)
+    duplicate_ids_of_this_patient = [
+        dup_id for dup_id, canonical_id in KNOWN_DUPLICATE_PATIENT_IDS.items() if canonical_id == patient_id
+    ]
+    if duplicate_ids_of_this_patient:
+        _flag_cross_patient_medications(
+            resources["MedicationRequest"], duplicate_ids_of_this_patient, data_quality
+        )
+
+    patient_is_canonical, patient_note = _canonical_status(patient_id)
 
     return PatientSummaryResponse(
-        patient=_build_patient(patient),
+        patient=_build_patient(patient, patient_is_canonical, patient_note),
         problems=problems,
         medications=medications,
         allergies=allergies,
@@ -111,15 +138,7 @@ def list_patients(bundle_dict: dict[str, Any]) -> list[PatientListItem]:
     items = []
     for patient in resources["Patient"].values():
         built = _build_patient(patient)
-        is_canonical = patient.id not in KNOWN_DUPLICATE_PATIENT_IDS
-        note = (
-            None
-            if is_canonical
-            else (
-                f"Not selected as the canonical record (see {CANONICAL_PATIENT_ID}); "
-                "clinical resources attributed to it are not merged into the canonical summary."
-            )
-        )
+        is_canonical, note = _canonical_status(patient.id)
         items.append(
             PatientListItem(
                 id=built.id,
@@ -219,7 +238,9 @@ def _age_days(start: str | None, bundle_timestamp: str | None) -> int | None:
     return (ref_dt - start_dt).days
 
 
-def _build_patient(patient: FHIRPatient) -> PatientSummary:
+def _build_patient(
+    patient: FHIRPatient, is_canonical: bool = True, note: str | None = None
+) -> PatientSummary:
     name = None
     if patient.name:
         n = patient.name[0]
@@ -246,6 +267,8 @@ def _build_patient(patient: FHIRPatient) -> PatientSummary:
         gender=patient.gender,
         phone=phone,
         address=address,
+        is_canonical=is_canonical,
+        note=note,
     )
 
 
@@ -363,11 +386,13 @@ def _build_medications(
 
 
 def _flag_cross_patient_medications(
-    med_requests: dict[str, FHIRMedicationRequest], data_quality: list[DataQualityFlag]
+    med_requests: dict[str, FHIRMedicationRequest],
+    duplicate_patient_ids: list[str],
+    data_quality: list[DataQualityFlag],
 ) -> None:
     for med in med_requests.values():
         parts = _reference_parts(med.subject)
-        if med.status == "active" and parts and parts[0] == "Patient" and parts[1] in KNOWN_DUPLICATE_PATIENT_IDS:
+        if med.status == "active" and parts and parts[0] == "Patient" and parts[1] in duplicate_patient_ids:
             code = _code_display(med.medicationCodeableConcept)
             data_quality.append(
                 DataQualityFlag(

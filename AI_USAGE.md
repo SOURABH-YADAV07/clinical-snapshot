@@ -120,6 +120,27 @@ patient's real encounter does *not* resolve
 strongest evidence in this project for verifying live against real data
 runs, rather than trusting that logic which looks correct actually is.
 
+**Self-caught: non-canonical status was invisible on a duplicate record's own
+page.** The developer asked what should happen when uploaded data includes a
+duplicate/"NCR" patient, which prompted actually reading `PatientHeader.tsx`
+rather than answering from memory of what was built earlier. Found that the
+"NCR" badge only ever rendered on the patient-list card
+(`components/PatientCard.tsx`); the individual snapshot page
+(`/patients/{id}`) showed nothing — no badge, no explanation — for a
+non-canonical patient. Someone navigating straight to `patient-002`'s own
+page (a shared link, a direct URL) would see no indication it's a duplicate
+record, directly contradicting this project's own principle that uncertain
+data must not look the same as confirmed data. Fixed by adding
+`is_canonical`/`note` to `PatientSummary` (previously only `PatientListItem`
+carried them) and rendering the same badge + explanation on the header. Also
+generalized `KNOWN_DUPLICATE_PATIENT_IDS` from a single hardcoded id to a
+dict of documented pairs while fixing this, since demonstrating the fix
+properly required a second real pair to test against — proven with
+`test_a_second_known_duplicate_pair_works_independently_of_the_first`, which
+also checks the two pairs' cross-patient-medication flags don't leak into
+each other's canonical summaries (the same bug class as the encounter leak
+above, caught proactively this time instead of via a live-server surprise).
+
 **Note on developer review in this session.** The five open normalization
 questions (see *Resolved Decisions* in `docs/README.md`) were presented to the
 developer as explicit proposed rules with rationale before any code was

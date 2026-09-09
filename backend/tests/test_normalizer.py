@@ -1,14 +1,24 @@
 import copy
+import json
+from pathlib import Path
 
 import pytest
 
-from app.services.loader import load_fhir_bundle
 from app.services.normalizer import build_patient_summary, list_patients
+
+# Loaded directly from the known original file, not via load_fhir_bundle()
+# (which merges everything currently in raw_data/, including any real
+# uploads made through the app) — these tests assert specifics of that one
+# known dataset and must not be affected by unrelated uploaded data.
+_ORIGINAL_BUNDLE_PATH = (
+    Path(__file__).resolve().parents[2] / "raw_data" / "scenario1_fhir_bundle[78].json"
+)
 
 
 @pytest.fixture(scope="module")
 def bundle():
-    return load_fhir_bundle()
+    with _ORIGINAL_BUNDLE_PATH.open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 @pytest.fixture(scope="module")
@@ -328,3 +338,71 @@ def test_encounters_are_scoped_to_the_requested_patient(bundle):
     condition_888 = by_id(patient_888_summary.problems, "condition-888")
     assert condition_888.reference_resolved is False
     assert condition_888.encounter is None
+
+
+def test_a_second_known_duplicate_pair_works_independently_of_the_first(bundle):
+    # KNOWN_DUPLICATE_PATIENT_IDS supports patient-216 -> patient-201 as a
+    # second documented pair (see normalizer.py), alongside the original
+    # patient-002 -> patient-001. Prove the two pairs don't interfere: each
+    # canonical patient only ever sees flags for *its own* duplicate, not
+    # the other pair's.
+    two_pairs_bundle = copy.deepcopy(bundle)
+    two_pairs_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:patient-201",
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-201",
+                "name": [{"family": "Alvarez", "given": ["Sofia"]}],
+                "birthDate": "1982-03-09",
+            },
+        }
+    )
+    two_pairs_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:patient-216",
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-216",
+                "name": [{"family": "Alvarez", "given": ["Sofia"]}],
+                "birthDate": "1982",
+            },
+        }
+    )
+    two_pairs_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:medicationrequest-216",
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "id": "medicationrequest-216",
+                "status": "active",
+                "intent": "order",
+                "medicationCodeableConcept": {
+                    "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "111111"}]
+                },
+                "subject": {"reference": "Patient/patient-216"},
+            },
+        }
+    )
+
+    listed = {item.id: item for item in list_patients(two_pairs_bundle)}
+    assert listed["patient-201"].is_canonical is True
+    assert listed["patient-216"].is_canonical is False
+    assert "patient-201" in listed["patient-216"].note
+    # The original pair is unaffected by the new one existing.
+    assert listed["patient-002"].is_canonical is False
+    assert "patient-001" in listed["patient-002"].note
+
+    patient_201_summary = build_patient_summary(two_pairs_bundle, "patient-201")
+    assert patient_201_summary.patient.is_canonical is True
+    assert patient_201_summary.patient.note is None
+    assert any(f.resource_id == "medicationrequest-216" for f in patient_201_summary.data_quality)
+
+    patient_216_summary = build_patient_summary(two_pairs_bundle, "patient-216")
+    assert patient_216_summary.patient.is_canonical is False
+    assert "patient-201" in patient_216_summary.patient.note
+
+    # patient-001's own summary must not pick up patient-216's medication —
+    # they belong to an unrelated canonical/duplicate pair.
+    patient_001_summary = build_patient_summary(two_pairs_bundle, "patient-001")
+    assert not any(f.resource_id == "medicationrequest-216" for f in patient_001_summary.data_quality)

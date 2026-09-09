@@ -94,7 +94,7 @@ Verify: `http://localhost:3000` loads the welcome page, and `/patients` shows th
 cd backend
 pytest
 ```
-40 tests (normalizer, loader, API), all passing.
+41 tests (normalizer, loader, API), all passing.
 
 **Configuration.** The frontend expects the backend at `http://127.0.0.1:8000` by default. To point it elsewhere, copy `frontend/.env.local.example` to `frontend/.env.local` and set `NEXT_PUBLIC_API_BASE_URL`.
 
@@ -127,7 +127,7 @@ Sample multi-patient Bundles for exercising the upload feature are in `test-data
 
 ## Normalization & Reconciliation Decisions
 
-**Canonical patient.** The Bundle contains two conflicting `Patient` records (`patient-001`, `patient-002`) with no `Patient.link` or `meta.lastUpdated` to arbitrate between them. `patient-001` is treated as canonical (richer demographics, referenced by the clinical resources) — an explicit, documented assumption, not a claim of proven identity. Conflicting fields are never silently merged; `patient-002`'s own active medication is excluded from `patient-001`'s summary and reported in Data Quality instead.
+**Canonical patient.** The Bundle contains two conflicting `Patient` records (`patient-001`, `patient-002`) with no `Patient.link` or `meta.lastUpdated` to arbitrate between them. `patient-001` is treated as canonical (richer demographics, referenced by the clinical resources) — an explicit, documented assumption, not a claim of proven identity. Conflicting fields are never silently merged; `patient-002`'s own active medication is excluded from `patient-001`'s summary and reported in Data Quality instead. This relationship is tracked in `KNOWN_DUPLICATE_PATIENT_IDS` (`services/normalizer.py`), which supports any number of documented pairs, not just this one — still never automated identity-matching, only explicit, human-reviewed assertions. A non-canonical record is labeled "NCR" everywhere it appears: the patient list card, and directly on its own snapshot page (via `PatientSummary.is_canonical`/`.note`), so navigating straight to it never hides that status.
 
 **Resource status.** Entered-in-error, inactive, resolved, and stopped resources are excluded from their respective "current" lists, with semantics judged per resource type rather than one blanket rule.
 
@@ -158,7 +158,7 @@ Sample multi-patient Bundles for exercising the upload feature are in `test-data
 
 ## Testing
 
-Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 40 tests total; run with `pytest` from `backend/`.
+Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 41 tests total; run with `pytest` from `backend/`.
 
 ---
 

@@ -116,6 +116,12 @@ a {
   text-align: center;
 }
 
+.patient-header-note {
+  margin-top: -0.4rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
 .patient-header dl {
   width: 100%;
   display: grid;
@@ -276,6 +282,7 @@ a {
 
 .badge {
   display: inline-block;
+  margin-left: 0.5rem;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -285,6 +292,7 @@ a {
   border: 1px solid var(--warning-border);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
+  vertical-align: middle;
 }
 
 .back-link {
