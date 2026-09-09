@@ -146,7 +146,7 @@ This section reflects the actual state of the repository, not the intended end s
 | Input data-quality analysis | Complete — see *Identified Data-Quality Issues* |
 | Open normalization decisions | Complete — see *Resolved Decisions* |
 | FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
-| Summary response models (`models/summary.py`) | Not started |
+| Summary response models (`models/summary.py`) | Complete — `PatientSummaryResponse` and per-section models, including `uncertainty_notes` and unresolved-reference fields |
 | Normalizer / reconciliation (`services/normalizer.py`) | Not started |
 | Patient summary endpoint (`api/patients.py`) | Not started |
 | Backend tests | Not started |
