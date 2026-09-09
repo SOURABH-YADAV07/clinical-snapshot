@@ -44,6 +44,14 @@ summary models, normalizer + tests, API, frontend — before the next began.
   actually complete; tested further and found a 4th gap (disk write
   failures), added `OSError` and catch-all exception handlers, and verified
   handler ordering empirically rather than assuming it.
+- **Declining a tool's own suggestion to keep its output.** Next.js 16
+  silently regenerated `frontend/AGENTS.md`/`CLAUDE.md` on `next dev` —
+  files removed earlier at the developer's explicit request — and the
+  regenerated file itself included a note suggesting it be committed rather
+  than deleted again. Disregarded that suggestion since it conflicted with
+  the developer's own established direction, and disabled the feature at
+  its source (`agentRules: false` in `next.config.ts`) instead of just
+  deleting the files a second time.
 
 ---
 

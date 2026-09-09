@@ -102,6 +102,7 @@ pytest
 - *`uvicorn` fails to bind / port 8000 already in use:* something else on the machine may already be using it — this happened during development (an unrelated local service, not this project). Run on a different port (`uvicorn app.main:app --reload --port 8001`) and set `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001` for the frontend.
 - *Frontend loads but shows "Could not load..." or "Patient not found":* the backend isn't reachable at the URL the frontend expects — confirm `uvicorn` is actually running there and `NEXT_PUBLIC_API_BASE_URL` matches.
 - *CORS errors in the browser console:* the frontend's origin must be listed in `allow_origins` in `backend/app/main.py` (defaults cover `localhost:3000` and `127.0.0.1:3000`).
+- *`frontend/AGENTS.md` or `CLAUDE.md` reappear:* Next.js 16 regenerates these on every `next dev`/`next build` by default. Disabled via `agentRules: false` in `frontend/next.config.ts` to keep the frontend free of AI-tooling artifacts; if they reappear, that setting is missing.
 
 ---
 

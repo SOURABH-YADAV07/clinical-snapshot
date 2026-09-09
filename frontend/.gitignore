@@ -17,6 +17,12 @@
 /.next/
 /out/
 
+# Next.js 16 auto-generates these on `next dev`/`next build`; disabled via
+# `agentRules: false` in next.config.ts, but ignored here too as a backstop
+# so they can never end up committed.
+AGENTS.md
+CLAUDE.md
+
 # production
 /build
 
