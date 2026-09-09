@@ -1,3 +1,6 @@
+"""Read-only patient endpoints. The Bundle is re-loaded and re-normalized on
+every request (no caching), so a stale copy is never served."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.models.summary import PatientListItem, PatientSummaryResponse

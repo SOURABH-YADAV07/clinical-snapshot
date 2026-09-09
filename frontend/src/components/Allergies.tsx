@@ -2,6 +2,7 @@ import type { AllergySummary } from "@/types/summary";
 import { CodeLabel } from "@/components/CodeLabel";
 import { titleCase } from "@/lib/titleCase";
 
+// Allergies have no encounter reference, so unconfirmed status stands in for it.
 export function isAllergyUncertain(allergy: AllergySummary): boolean {
   return !allergy.code.display_available || allergy.verification_status !== "confirmed";
 }

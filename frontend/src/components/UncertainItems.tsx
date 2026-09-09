@@ -1,3 +1,5 @@
+// Reuses each section's own *Item component so an item never appears
+// differently here than it would in its normal section.
 import type {
   AllergySummary,
   EncounterSummary,

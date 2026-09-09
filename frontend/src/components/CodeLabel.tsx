@@ -1,3 +1,4 @@
+// Never invents a display name — shows the raw code instead when missing.
 import type { CodeDisplay } from "@/types/summary";
 
 export function CodeLabel({ code }: { code: CodeDisplay | null }) {

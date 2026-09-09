@@ -1,3 +1,5 @@
+// The app's only client component — needs a file picker and a browser-side
+// POST, which a Server Component can't do.
 "use client";
 
 import { useState } from "react";

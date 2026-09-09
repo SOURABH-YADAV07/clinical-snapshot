@@ -1,3 +1,7 @@
+"""Reads and merges FHIR Bundle files from raw_data/, and saves uploads there.
+Every file is treated as untrusted input, not just uploads — malformed files
+or resources are skipped and logged, never allowed to crash a request."""
+
 import json
 import logging
 import uuid
@@ -32,11 +36,20 @@ def load_fhir_bundle() -> dict[str, Any]:
             logger.warning("Skipping unreadable bundle file %s: %s", path.name, error)
             continue
 
-        for entry in data.get("entry", []):
-            resource = entry.get("resource", {})
-            key = (resource.get("resourceType"), resource.get("id"))
-            if None in key:
+        if not isinstance(data, dict) or not isinstance(data.get("entry"), list):
+            logger.warning("Skipping %s: not a well-formed Bundle (missing/invalid 'entry')", path.name)
+            continue
+
+        for entry in data["entry"]:
+            if not isinstance(entry, dict):
                 continue
+            resource = entry.get("resource")
+            if not isinstance(resource, dict):
+                continue
+            resource_type, resource_id = resource.get("resourceType"), resource.get("id")
+            if not isinstance(resource_type, str) or not isinstance(resource_id, str):
+                continue
+            key = (resource_type, resource_id)
             if key in seen:
                 logger.warning(
                     "Duplicate resource %s/%s in %s ignored (already loaded from %s)",

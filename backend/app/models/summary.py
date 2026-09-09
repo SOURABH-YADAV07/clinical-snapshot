@@ -1,3 +1,8 @@
+"""The normalized API response shape — what the frontend actually consumes.
+Field names are snake_case (not the raw FHIR camelCase) and every "is this
+uncertain" signal (missing display, unresolved reference, non-canonical
+patient) is an explicit field, never silently dropped."""
+
 from pydantic import BaseModel, Field
 
 

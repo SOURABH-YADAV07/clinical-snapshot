@@ -1,3 +1,8 @@
+"""Reconciles a raw FHIR Bundle into a PatientSummaryResponse. All clinical
+safety rules live here: status filtering, canonical-patient reconciliation,
+reference resolution, and date-precision preservation. See docs/README.md,
+"Normalization & Reconciliation Decisions" for the rationale behind each."""
+
 import logging
 import re
 from datetime import datetime
@@ -158,11 +163,19 @@ def _parse_resources(bundle_dict: dict[str, Any]) -> dict[str, dict[str, Any]]:
     # not just the known-good demo file) are skipped and logged rather than
     # crashing the whole request over one bad entry.
     parsed: dict[str, dict[str, Any]] = {rt: {} for rt in _MODEL_BY_RESOURCE_TYPE}
-    for entry in bundle_dict.get("entry", []):
+    entries = bundle_dict.get("entry", [])
+    if not isinstance(entries, list):
+        return parsed
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
         raw = entry.get("resource", {})
         if not isinstance(raw, dict):
             continue
-        model_cls = _MODEL_BY_RESOURCE_TYPE.get(raw.get("resourceType"))
+        resource_type = raw.get("resourceType")
+        if not isinstance(resource_type, str):
+            continue
+        model_cls = _MODEL_BY_RESOURCE_TYPE.get(resource_type)
         if model_cls is None:
             continue
         try:
@@ -308,6 +321,8 @@ def _build_problems(
     all_encounters: dict[str, EncounterSummary],
     data_quality: list[DataQualityFlag],
 ) -> list[ProblemSummary]:
+    # Only currently-active problems: excludes entered-in-error and anything
+    # not clinically active (inactive, resolved, remission).
     results = []
     for cond in conditions.values():
         parts = _reference_parts(cond.subject)
@@ -359,6 +374,8 @@ def _build_medications(
     patient_id: str,
     data_quality: list[DataQualityFlag],
 ) -> list[MedicationSummary]:
+    # Active medications only — stopped ones are excluded entirely, not shown
+    # in a separate "inactive" list (matches the doc's UI spec).
     results = []
     for med in med_requests.values():
         parts = _reference_parts(med.subject)
@@ -390,6 +407,8 @@ def _flag_cross_patient_medications(
     duplicate_patient_ids: list[str],
     data_quality: list[DataQualityFlag],
 ) -> None:
+    # duplicate_patient_ids is scoped by the caller to only the duplicates of
+    # *this* canonical patient, so this never leaks an unrelated pair's flag.
     for med in med_requests.values():
         parts = _reference_parts(med.subject)
         if med.status == "active" and parts and parts[0] == "Patient" and parts[1] in duplicate_patient_ids:
@@ -412,6 +431,8 @@ def _build_allergies(
     patient_id: str,
     data_quality: list[DataQualityFlag],
 ) -> list[AllergySummary]:
+    # Active allergies only; unconfirmed ones are still included (flagged
+    # as uncertain below) rather than hidden — see Clinical Safety Principle 8.
     results = []
     for allergy in allergies.values():
         parts = _reference_parts(allergy.patient)
@@ -489,6 +510,8 @@ def _build_observations(
     all_encounters: dict[str, EncounterSummary],
     data_quality: list[DataQualityFlag],
 ) -> list[ObservationSummary]:
+    # No category-based filtering (most Observations in this data lack one);
+    # every non-error observation for this patient is considered relevant.
     results = []
     for obs in observations.values():
         parts = _reference_parts(obs.subject)

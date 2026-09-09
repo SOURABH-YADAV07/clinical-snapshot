@@ -3,6 +3,7 @@ import { CodeLabel } from "@/components/CodeLabel";
 import { formatDate } from "@/lib/formatDate";
 import { titleCase } from "@/lib/titleCase";
 
+// Field-driven, not resource-id-based — routes correctly as source data changes.
 export function isProblemUncertain(problem: ProblemSummary): boolean {
   return !problem.code.display_available || !problem.reference_resolved;
 }

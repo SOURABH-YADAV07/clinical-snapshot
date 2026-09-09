@@ -1,3 +1,8 @@
+"""Typed models for the raw FHIR resources this app reads. Only the fields
+actually used are modeled (not full FHIR R4). extra="allow" everywhere so
+unmodeled fields and FHIR invariant violations in the source data don't
+break parsing — see docs/README.md, "Structural conformance"."""
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field

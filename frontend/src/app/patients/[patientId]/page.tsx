@@ -47,6 +47,9 @@ export default async function PatientSnapshotPage({
     return null;
   }
 
+  // Split into known vs. uncertain per section: known items render in their
+  // normal section below; uncertain ones render only in UncertainItems, so
+  // an item never appears twice or gets silently dropped.
   const [knownProblems, uncertainProblems] = partitionByConfidence(summary.problems, isProblemUncertain);
   const [knownMedications, uncertainMedications] = partitionByConfidence(
     summary.medications,

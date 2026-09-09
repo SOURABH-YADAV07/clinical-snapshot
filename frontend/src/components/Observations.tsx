@@ -2,6 +2,7 @@ import type { ObservationSummary } from "@/types/summary";
 import { CodeLabel } from "@/components/CodeLabel";
 import { formatDate } from "@/lib/formatDate";
 
+// Same rule as Problems.tsx: missing display or unresolved reference.
 export function isObservationUncertain(observation: ObservationSummary): boolean {
   return !observation.code.display_available || !observation.reference_resolved;
 }

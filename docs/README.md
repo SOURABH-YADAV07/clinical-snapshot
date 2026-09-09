@@ -94,7 +94,7 @@ Verify: `http://localhost:3000` loads the welcome page, and `/patients` shows th
 cd backend
 pytest
 ```
-41 tests (normalizer, loader, API), all passing.
+48 tests (normalizer, loader, API), all passing.
 
 **Configuration.** The frontend expects the backend at `http://127.0.0.1:8000` by default. To point it elsewhere, copy `frontend/.env.local.example` to `frontend/.env.local` and set `NEXT_PUBLIC_API_BASE_URL`.
 
@@ -118,6 +118,8 @@ pytest
 ## Data
 
 `raw_data/` holds every Bundle the API knows about. The original assessment file is never edited in place. Uploads (via `/upload` or `POST /api/bundles`) add new files here — never overwriting anything — and the loader merges every `.json` file on each request, so a new upload is live immediately with no restart. If two files define the same resource id, the first one loaded wins and the collision is logged, never silently overwritten.
+
+Both the loader and the normalizer treat every Bundle file as untrusted input, not just the ones coming through `POST /api/bundles`: a file or resource that's missing, malformed, wrong-typed, or not JSON at all is skipped and logged rather than crashing the request. Beyond that, `backend/app/main.py` registers exception handlers so no endpoint ever returns Starlette's bare, unstructured "Internal Server Error": an empty `raw_data/` returns a clean `503` explaining why, a storage failure (permission denied, full disk) returns a `503` without leaking OS internals, and any other genuinely unexpected exception still gets logged in full server-side but returns a generic `500` to the client rather than a stack trace.
 
 `normalized_data/` is a backup/inspection copy only — the API never reads from it, so it can never serve stale data.
 
@@ -158,7 +160,7 @@ Sample multi-patient Bundles for exercising the upload feature are in `test-data
 
 ## Testing
 
-Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 41 tests total; run with `pytest` from `backend/`.
+Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 48 tests total; run with `pytest` from `backend/`.
 
 ---
 

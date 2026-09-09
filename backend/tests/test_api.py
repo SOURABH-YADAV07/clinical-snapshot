@@ -1,6 +1,7 @@
 import json
 import shutil
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -133,3 +134,52 @@ def test_uploaded_bundle_appears_in_merged_patient_list(tmp_path, monkeypatch):
     assert list_response.status_code == 200
     ids = {item["id"] for item in list_response.json()}
     assert ids == {"patient-seed", "patient-uploaded"}
+
+
+def test_empty_raw_data_returns_clean_503_not_a_raw_500(tmp_path, monkeypatch):
+    # raw_data/ with no .json files at all (fresh checkout, demo file
+    # removed) used to produce an unhandled 500 with no detail.
+    monkeypatch.setattr(loader, "RAW_DATA_DIR", tmp_path)
+
+    list_response = client.get("/api/patients")
+    assert list_response.status_code == 503
+    assert "raw_data" in list_response.json()["detail"]
+
+    summary_response = client.get("/api/patients/patient-001/summary")
+    assert summary_response.status_code == 503
+
+
+def test_storage_write_failure_returns_clean_503_not_a_raw_500(tmp_path, monkeypatch):
+    # A disk write failure while saving an upload (permission denied, full
+    # disk, read-only filesystem) used to reach the client as an unhandled
+    # 500 with no detail. Uses a mock path object, never the real
+    # RAW_DATA_DIR, so the failure is guaranteed before any real I/O.
+    fake_dir = MagicMock()
+    fake_dir.mkdir.side_effect = PermissionError("Permission denied")
+    monkeypatch.setattr(loader, "RAW_DATA_DIR", fake_dir)
+    bundle = _bundle([_patient_entry("patient-x", "X")])
+
+    response = client.post("/api/bundles", json=bundle)
+
+    assert response.status_code == 503
+    assert "storage error" in response.json()["detail"].lower()
+
+
+def test_unexpected_error_returns_clean_500_not_a_raw_response(monkeypatch):
+    # Last-resort safety net: any genuinely unexpected exception type must
+    # still produce a structured JSON response, not Starlette's bare
+    # "Internal Server Error" text with no body. Needs a client with
+    # raise_server_exceptions=False: TestClient's default re-raises
+    # exceptions only caught by a blanket Exception handler (by design, so
+    # test suites still surface real bugs) — this test wants to see what an
+    # actual client would receive, not that test-time protection.
+    def _raise_runtime_error(*args, **kwargs):
+        raise RuntimeError("something totally unexpected")
+
+    monkeypatch.setattr("app.api.patients.build_patient_summary", _raise_runtime_error)
+
+    lenient_client = TestClient(app, raise_server_exceptions=False)
+    response = lenient_client.get("/api/patients/patient-001/summary")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "An unexpected error occurred."}

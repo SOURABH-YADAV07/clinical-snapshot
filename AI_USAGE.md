@@ -57,10 +57,50 @@ application being generated in one pass.
   parsing (`_parse_resources`) now skips and logs a malformed resource
   instead of crashing the whole request, since uploaded data is no longer
   guaranteed well-formed the way the fixed demo file was.
+- **Adversarial-input robustness pass.** Rather than reasoning about what
+  *might* be fragile, actually fed deliberately malformed input at the real
+  code (`entry` arrays containing strings/numbers/null instead of objects,
+  `resourceType`/`id` as lists or dicts instead of strings, an empty
+  `raw_data/`) and read what happened. Found three genuine unhandled-crash
+  bugs this way — a bare `AttributeError`/`TypeError` reaching the client as
+  a raw 500 with zero detail — none of them hypothetical, all reproduced
+  first, then fixed, then covered by a regression test asserting the same
+  input now degrades cleanly (skip-and-log, or a proper error response).
+- **Closing the loop on "does the program ever crash."** The developer
+  directly asked whether error handling was actually complete. Rather than
+  re-asserting the answer from the previous pass, tested further and found
+  a fourth gap: a disk write failure while saving an upload (permission
+  denied, full disk) still reached the client as a bare 500. Added two
+  `backend/app/main.py` exception handlers — one for `OSError` broadly
+  (covers read/write storage failures beyond the already-handled
+  `FileNotFoundError`), and a last-resort catch-all for `Exception` so no
+  endpoint can ever return Starlette's default unstructured error body,
+  regardless of the failure's cause. Verified handler specificity ordering
+  empirically (`FileNotFoundError`'s own message still wins over the
+  broader `OSError` one) rather than assuming Starlette's dispatch behaves
+  as expected.
 
 ---
 
 ## Where AI Was Corrected / Self-Corrected
+
+**Self-caught mistake: a test command wrote to the real `raw_data/`, not an
+isolated one.** While reproducing the adversarial-input crashes above, one
+exploratory command used the app's default `TestClient` directly — checking
+whether a malformed bundle crashed the endpoint — without first isolating
+`RAW_DATA_DIR` to a temp directory, the way every other test and manual
+verification in this project deliberately does specifically to protect the
+real project data. That one bundle happened to contain a single valid
+`Patient` alongside the garbage entries, so the upload endpoint's
+"at least one patient found" check passed and it was actually written to
+disk as `raw_data/uploaded-<id>.json`. Caught on the very next command (a
+routine live smoke-test of the happy path showed an unexpected extra
+patient), traced to the exact command that caused it, and removed — the
+original bundle file was never touched, and the fix didn't require any code
+change, just more consistent discipline in how verification commands are
+written. Included here because the instinct to isolate test state existed
+throughout this project and still wasn't applied one time; noting it plainly
+rather than omitting it.
 
 **Self-caught: `reference_resolved` was ambiguous for "no reference at all."**
 The first version of `_resolve_encounter_reference` in

@@ -406,3 +406,45 @@ def test_a_second_known_duplicate_pair_works_independently_of_the_first(bundle):
     # they belong to an unrelated canonical/duplicate pair.
     patient_001_summary = build_patient_summary(two_pairs_bundle, "patient-001")
     assert not any(f.resource_id == "medicationrequest-216" for f in patient_001_summary.data_quality)
+
+
+def test_non_dict_entries_are_skipped_without_crashing():
+    # Found by adversarial testing of the upload endpoint: bundle_dict.get()
+    # patterns assumed every "entry" was a dict with a dict "resource"
+    # inside. A garbage entry (string, number, null) in an uploaded Bundle
+    # crashed the whole request with an unhandled 500 instead of being
+    # skipped like any other malformed resource.
+    bundle = {
+        "resourceType": "Bundle",
+        "entry": [
+            "not a dict",
+            123,
+            None,
+            {"not_a_resource_key": "still garbage"},
+            {"resource": "resource value is a string, not a dict"},
+            {"resource": {"resourceType": "Patient", "id": "patient-ok", "name": [{"family": "Ok"}]}},
+        ],
+    }
+
+    items = list_patients(bundle)
+
+    assert [item.id for item in items] == ["patient-ok"]
+
+
+def test_non_string_resource_type_or_id_is_skipped_without_crashing():
+    # A second crash found the same way: resourceType or id being a list or
+    # dict (instead of a string) made them unhashable, crashing the
+    # _MODEL_BY_RESOURCE_TYPE dict lookup with an unhandled TypeError rather
+    # than a clean skip.
+    bundle = {
+        "resourceType": "Bundle",
+        "entry": [
+            {"resource": {"resourceType": ["Patient"], "id": "patient-bad-type"}},
+            {"resource": {"resourceType": "Patient", "id": {"nested": "dict"}}},
+            {"resource": {"resourceType": "Patient", "id": "patient-ok", "name": [{"family": "Ok"}]}},
+        ],
+    }
+
+    items = list_patients(bundle)
+
+    assert [item.id for item in items] == ["patient-ok"]

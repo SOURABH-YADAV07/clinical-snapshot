@@ -1,3 +1,6 @@
+// Backend API client. Every read uses cache: "no-store" — the backend
+// re-normalizes on each request, so the frontend must never cache a
+// possibly-stale summary either.
 import type { PatientListItem, PatientSummaryResponse } from "@/types/summary";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
