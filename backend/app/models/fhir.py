@@ -1,6 +1,5 @@
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -164,3 +163,34 @@ class FHIRObservation(FHIRResource):
     effectiveDateTime: str | None = None
     valueQuantity: FHIRQuantity | None = None
     component: list[FHIRObservationComponent] | None = None
+
+
+class FHIRDosage(BaseModel):
+    """A single dosage instruction entry."""
+
+    model_config = ConfigDict(extra="allow")
+
+    text: str | None = None
+
+
+class FHIRMedicationRequest(FHIRResource):
+    """FHIR MedicationRequest fields needed for the clinical snapshot."""
+
+    status: str | None = None
+    intent: str | None = None
+    medicationCodeableConcept: FHIRCodeableConcept | None = None
+    subject: FHIRReference | None = None
+    encounter: FHIRReference | None = None
+    authoredOn: str | None = None
+    dosageInstruction: list[FHIRDosage] | None = None
+
+
+class FHIRAllergyIntolerance(FHIRResource):
+    """FHIR AllergyIntolerance fields needed for the clinical snapshot."""
+
+    clinicalStatus: FHIRCodeableConcept | None = None
+    verificationStatus: FHIRCodeableConcept | None = None
+    code: FHIRCodeableConcept | None = None
+    criticality: str | None = None
+    patient: FHIRReference | None = None
+    recordedDate: str | None = None

@@ -144,7 +144,8 @@ This section reflects the actual state of the repository, not the intended end s
 | FHIR Bundle loader (`services/loader.py`) | Complete — loads all 17 entries |
 | FastAPI application boots, `/docs` available | Complete |
 | Input data-quality analysis | Complete — see *Identified Data-Quality Issues* |
-| FHIR Pydantic models (`models/fhir.py`) | Not started |
+| Open normalization decisions | Complete — see *Resolved Decisions* |
+| FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
 | Summary response models (`models/summary.py`) | Not started |
 | Normalizer / reconciliation (`services/normalizer.py`) | Not started |
 | Patient summary endpoint (`api/patients.py`) | Not started |
@@ -693,37 +694,56 @@ The priority is correctness, safe data handling, a working API, a working fronte
 
 ---
 
-# Open Decisions
+# Resolved Decisions
 
-The following questions materially affect the normalizer and are recorded here
-rather than being resolved silently in code. Each will be settled, implemented,
-and documented with its rationale before the normalizer is considered complete.
+The following questions materially affect the normalizer. Each was recorded
+before implementation, decided below with its rationale, and will be enforced
+by the normalizer and covered by tests.
 
 **1. The active medication on the non-canonical patient.**
 `medicationrequest-003` is `active` but belongs to `patient-002`. Excluding it
 from the canonical patient's medication list is correct, because attributing it
 would mean silently merging two records that the Bundle never links. However,
-excluding it without trace would hide an active prescription. The current
-intention is to exclude it from Active Medications while reporting it in the
-data-quality section as an active medication on an unmerged duplicate record.
+excluding it without trace would hide an active prescription.
+
+*Resolution:* Excluded from `patient-001`'s Active Medications. Reported in the
+`data_quality` section as an active medication on the unmerged duplicate
+record, referencing the medication code so it stays traceable without being
+displayed as though it belonged to the canonical patient.
 
 **2. Suspected false precision.**
 Values such as `2018-01-01T00:00:00Z` are valid full timestamps, but midnight
 on the first of January is a common artifact of a year-only value being padded
-upstream. The choice is between presenting the data literally and flagging it
-as suspected coarser precision.
+upstream.
+
+*Resolution:* Any datetime with an exact `T00:00:00Z` time component is
+displayed literally (never truncated or altered) and additionally flagged in
+`data_quality` as suspected coarser precision than stated. This is a single
+deterministic, resource-agnostic signal — exact midnight UTC — rather than a
+special case for January 1st, so it generalizes to any resource. It affects
+`condition-001.onsetDateTime`, `condition-002.onsetDateTime`, and
+`allergyintolerance-001.recordedDate`.
 
 **3. The reference point for "recent" encounters.**
 `Bundle.timestamp` is later than every event in the Bundle, and the real
 current date is later still. Anchoring recency to the current date would cause
-the meaning of "recent" to drift over time. Options are to anchor to
-`Bundle.timestamp`, to omit a recency window entirely, or to label encounters
-with their age relative to a stated reference point.
+the meaning of "recent" to drift over time.
+
+*Resolution:* Recency is anchored to `Bundle.timestamp`, not wall-clock
+"today." No hard cutoff window is applied — all non-excluded encounters are
+returned sorted by date, each labeled with its age relative to
+`Bundle.timestamp`. An arbitrary window (e.g. "last 12 months") would risk
+hiding a valid encounter for a reason not grounded in the data itself.
 
 **4. The malformed allergy coding.**
 `allergyintolerance-001` pairs the SNOMED CT system with a code that is not
 SNOMED-shaped, while supplying the display "Penicillin". The choice is between
 trusting the supplied display and additionally marking the coding as suspect.
+
+*Resolution:* The supplied display is trusted and shown, since it was provided
+by the source rather than invented by the application. The system/code
+mismatch is additionally surfaced in `data_quality` so the inconsistency is
+never silently hidden.
 
 **5. Possible duplicate allergy.**
 `allergyintolerance-003` carries a SNOMED-shaped code with no display, and may
@@ -731,8 +751,12 @@ denote a concept overlapping `allergyintolerance-001`. Its meaning is not
 inferred, since doing so would amount to guessing a display value. Both failure
 modes carry risk: an unnoticed duplicate clutters the allergy list, while a
 wrongly assumed duplicate could suppress a distinct allergy. Verification would
-require a terminology service, which is out of scope here, so both entries are
-retained and the uncertainty is surfaced.
+require a terminology service, which is out of scope here.
+
+*Resolution:* Both entries are retained as separate allergies. No duplicate
+linkage is inferred or asserted between them. `allergyintolerance-003` is
+shown with its code, display marked unavailable, and its `unconfirmed` status
+visible.
 
 ---
 
