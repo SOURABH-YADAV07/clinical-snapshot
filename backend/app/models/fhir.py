@@ -160,6 +160,7 @@ class FHIRObservation(FHIRResource):
     code: FHIRCodeableConcept | None = None
     subject: FHIRReference | None = None
     encounter: FHIRReference | None = None
+    performer: list[FHIRReference] | None = None
     effectiveDateTime: str | None = None
     valueQuantity: FHIRQuantity | None = None
     component: list[FHIRObservationComponent] | None = None

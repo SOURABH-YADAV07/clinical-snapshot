@@ -147,9 +147,9 @@ This section reflects the actual state of the repository, not the intended end s
 | Open normalization decisions | Complete — see *Resolved Decisions* |
 | FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
 | Summary response models (`models/summary.py`) | Complete — `PatientSummaryResponse` and per-section models, including `uncertainty_notes` and unresolved-reference fields |
-| Normalizer / reconciliation (`services/normalizer.py`) | Not started |
+| Normalizer / reconciliation (`services/normalizer.py`) | Complete — implements all Resolved Decisions and the status-handling table |
 | Patient summary endpoint (`api/patients.py`) | Not started |
-| Backend tests | Not started |
+| Backend tests | Complete for the normalizer — 19 tests covering the documented safety cases, all passing against the real Bundle |
 | Frontend (Next.js) | Not started |
 
 ### Verified working
@@ -818,17 +818,17 @@ AI_USAGE.md
 
 - [x] Bundle loads successfully.
 - [x] FastAPI application runs and `/docs` is available.
-- [ ] Required FHIR resources are modeled with Pydantic.
-- [ ] Patient reconciliation is implemented and documented.
-- [ ] Invalid/error statuses are handled.
-- [ ] Active/inactive/stopped/resolved states are handled appropriately.
-- [ ] Missing coding displays are handled safely.
-- [ ] Broken references are handled safely.
-- [ ] Date precision is preserved.
-- [ ] Patient summary response works.
+- [x] Required FHIR resources are modeled with Pydantic.
+- [x] Patient reconciliation is implemented and documented.
+- [x] Invalid/error statuses are handled.
+- [x] Active/inactive/stopped/resolved states are handled appropriately.
+- [x] Missing coding displays are handled safely.
+- [x] Broken references are handled safely.
+- [x] Date precision is preserved.
+- [ ] Patient summary response works. (normalizer produces it directly; not yet wired to an endpoint)
 - [ ] Patient summary endpoint is exposed.
 - [ ] CORS is configured for the frontend origin.
-- [ ] Backend tests pass.
+- [x] Backend tests pass. (19/19 for the normalizer; endpoint tests still to come)
 
 ## Frontend
 
