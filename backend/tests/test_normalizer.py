@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from app.services.loader import load_fhir_bundle
@@ -19,8 +21,10 @@ def test_list_patients_marks_canonical_and_duplicate(bundle):
     assert [item.id for item in items] == ["patient-001", "patient-002"]
     assert items[0].is_canonical is True
     assert items[0].note is None
+    assert items[0].phone == "555-014-2231"
     assert items[1].is_canonical is False
     assert items[1].note is not None
+    assert items[1].phone == "555-014-9987"
 
 
 def test_non_canonical_patient_summary_still_works(bundle):
@@ -152,3 +156,175 @@ def test_unresolved_performer_reference_flagged_without_crashing(summary):
 def test_suspected_midnight_precision_flagged(summary):
     cond = by_id(summary.problems, "condition-001")
     assert any("midnight UTC" in note for note in cond.uncertainty_notes)
+
+
+def _find_resource(bundle, resource_type, resource_id):
+    for entry in bundle["entry"]:
+        resource = entry["resource"]
+        if resource["resourceType"] == resource_type and resource["id"] == resource_id:
+            return resource
+    raise AssertionError(f"{resource_type}/{resource_id} not found in bundle")
+
+
+def test_item_moves_out_of_uncertain_once_underlying_data_is_complete(bundle):
+    # condition-003 is uncertain today only because two facts are true of the
+    # raw data: its code has no display, and it references an Encounter that
+    # doesn't exist. This proves the normalizer (and therefore the frontend's
+    # known/uncertain split, which reads these same two fields) is driven
+    # entirely by those facts, not by a hardcoded resource id. Supply both
+    # missing facts on an in-memory copy — raw_data/ itself is never touched
+    # — and the item should come back fully resolved.
+    original = by_id(build_patient_summary(bundle, "patient-001").problems, "condition-003")
+    assert original.code.display_available is False
+    assert original.reference_resolved is False
+
+    improved_bundle = copy.deepcopy(bundle)
+    condition = _find_resource(improved_bundle, "Condition", "condition-003")
+    condition["code"]["coding"][0]["display"] = "Type 2 diabetes mellitus without complications"
+    improved_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:encounter-099",
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "encounter-099",
+                "status": "finished",
+                "subject": {"reference": "Patient/patient-001"},
+                "period": {"start": "2019-03-01T09:00:00Z", "end": "2019-03-01T09:30:00Z"},
+            },
+        }
+    )
+
+    improved = by_id(build_patient_summary(improved_bundle, "patient-001").problems, "condition-003")
+    assert improved.code.display_available is True
+    assert improved.code.display == "Type 2 diabetes mellitus without complications"
+    assert improved.reference_resolved is True
+    assert improved.encounter is not None
+    assert improved.encounter.id == "encounter-099"
+
+    # This is the exact predicate the frontend uses (isProblemUncertain in
+    # Problems.tsx) to decide known vs. Data Quality placement.
+    def is_problem_uncertain(problem):
+        return not problem.code.display_available or not problem.reference_resolved
+
+    assert is_problem_uncertain(original) is True
+    assert is_problem_uncertain(improved) is False
+
+
+def test_malformed_resource_is_skipped_without_crashing(bundle):
+    # Relevant once bundles can be uploaded by users rather than only the
+    # known-good demo file: a single bad resource must not take down the
+    # whole request.
+    broken_bundle = copy.deepcopy(bundle)
+    broken_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:condition-broken",
+            "resource": {
+                "resourceType": "Condition",
+                # Missing required "id" — this resource cannot validate.
+                "subject": {"reference": "Patient/patient-001"},
+            },
+        }
+    )
+
+    summary = build_patient_summary(broken_bundle, "patient-001")
+
+    assert summary is not None
+    assert len(summary.problems) == 2
+
+
+def test_unrelated_uploaded_patient_is_not_flagged_as_duplicate(bundle):
+    # Regression test: a third, entirely unrelated patient (as would appear
+    # after uploading a new bundle — see services/loader.py) must not be
+    # mistaken for a duplicate of the canonical patient just because it
+    # isn't patient-001. Only patient-002 is a documented, human-reviewed
+    # duplicate.
+    multi_patient_bundle = copy.deepcopy(bundle)
+    multi_patient_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:patient-999",
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-999",
+                "name": [{"family": "Rivera", "given": ["Marcus"]}],
+                "birthDate": "1990-05-14",
+            },
+        }
+    )
+    multi_patient_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:medicationrequest-999",
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "id": "medicationrequest-999",
+                "status": "active",
+                "intent": "order",
+                "medicationCodeableConcept": {
+                    "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "999999"}]
+                },
+                "subject": {"reference": "Patient/patient-999"},
+            },
+        }
+    )
+
+    listed = by_id(list_patients(multi_patient_bundle), "patient-999")
+    assert listed.is_canonical is True
+    assert listed.note is None
+
+    summary = build_patient_summary(multi_patient_bundle, "patient-001")
+    assert not any(f.resource_id == "medicationrequest-999" for f in summary.data_quality)
+
+
+def test_encounters_are_scoped_to_the_requested_patient(bundle):
+    # Regression test: found by manually uploading a multi-patient bundle
+    # and inspecting the response. `visible_encounters` used to be built
+    # from every Encounter in the whole (now merged, multi-file) bundle,
+    # filtered only by status — never by which patient it belonged to. With
+    # a single-patient demo bundle this was invisible; with more than one
+    # patient's encounters in the dataset, every patient's summary showed
+    # every other patient's encounters too.
+    other_patient_bundle = copy.deepcopy(bundle)
+    other_patient_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:patient-888",
+            "resource": {"resourceType": "Patient", "id": "patient-888", "name": [{"family": "Nguyen"}]},
+        }
+    )
+    other_patient_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:encounter-888",
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "encounter-888",
+                "status": "finished",
+                "subject": {"reference": "Patient/patient-888"},
+                "period": {"start": "2026-01-01T10:00:00Z", "end": "2026-01-01T10:30:00Z"},
+            },
+        }
+    )
+    other_patient_bundle["entry"].append(
+        {
+            "fullUrl": "urn:uuid:condition-888",
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-888",
+                "clinicalStatus": {"coding": [{"code": "active"}]},
+                "verificationStatus": {"coding": [{"code": "confirmed"}]},
+                "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z00.00"}]},
+                "subject": {"reference": "Patient/patient-888"},
+                # References patient-001's own encounter, not one of its own —
+                # this must NOT resolve, even though that encounter exists in
+                # the bundle, because it belongs to a different patient.
+                "encounter": {"reference": "Encounter/encounter-001"},
+            },
+        }
+    )
+
+    patient_001_summary = build_patient_summary(other_patient_bundle, "patient-001")
+    assert all(e.id != "encounter-888" for e in patient_001_summary.encounters)
+
+    patient_888_summary = build_patient_summary(other_patient_bundle, "patient-888")
+    assert [e.id for e in patient_888_summary.encounters] == ["encounter-888"]
+
+    condition_888 = by_id(patient_888_summary.problems, "condition-888")
+    assert condition_888.reference_resolved is False
+    assert condition_888.encounter is None

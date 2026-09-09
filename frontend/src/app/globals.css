@@ -91,36 +91,66 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 1.5rem;
 }
 
 .card h2 {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  text-align: center;
+  padding-bottom: 0.75rem;
   margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.patient-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .patient-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 0.75rem;
+  text-align: center;
 }
 
 .patient-header dl {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.patient-header dl > div {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.75rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  text-align: center;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.5rem;
 }
 
 .patient-header dt {
-  font-size: 0.75rem;
+  width: 100%;
+  font-size: 0.85rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--muted);
+  text-align: center;
 }
 
 .patient-header dd {
+  width: 100%;
   font-size: 0.95rem;
+  font-weight: 400;
+  text-align: center;
 }
 
 .item-list {
@@ -130,18 +160,21 @@ a {
   gap: 0.9rem;
 }
 
-.item-list li {
+.item-list > li {
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--border);
 }
 
-.item-list li:last-child {
+.item-list > li:last-child {
   border-bottom: none;
-  padding-bottom: 0;
+  padding-bottom: 0.5rem;
 }
 
 .item-title {
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .item-meta {
@@ -173,31 +206,20 @@ a {
   margin-left: -0.75rem;
 }
 
-.uncertainty-notes {
-  list-style: none;
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+.data-quality-group-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin: 0.7rem 0 0.35rem;
 }
 
-.uncertainty-notes li {
-  font-size: 0.8rem;
-  color: var(--warning-text);
-  background: var(--warning-bg);
-  border: 1px solid var(--warning-border);
-  border-radius: 6px;
-  padding: 0.35rem 0.55rem;
-  width: fit-content;
+.data-quality-group-label:first-of-type {
+  margin-top: 0;
 }
 
-.flag {
-  font-size: 0.8rem;
-  color: var(--danger-text);
-  margin-top: 0.35rem;
-}
-
-.data-quality ul {
+.data-quality-log {
   list-style: disc;
   padding-left: 1.25rem;
   display: flex;
@@ -205,7 +227,7 @@ a {
   gap: 0.5rem;
 }
 
-.data-quality li {
+.data-quality-log li {
   font-size: 0.85rem;
   color: var(--foreground);
 }
@@ -218,11 +240,6 @@ a {
 .error {
   color: var(--danger-text);
   padding: 2rem 0;
-}
-
-.page > h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
 }
 
 .patient-list {
@@ -243,6 +260,20 @@ a {
   box-shadow: 0 1px 8px color-mix(in srgb, var(--accent-soft) 35%, transparent);
 }
 
+.patient-card-row {
+  font-size: 0.9rem;
+  color: var(--foreground);
+}
+
+.patient-card-row + .patient-card-row {
+  margin-top: 0.35rem;
+}
+
+.patient-card-label {
+  font-weight: 700;
+  margin-right: 0.3rem;
+}
+
 .badge {
   display: inline-block;
   font-size: 0.7rem;
@@ -257,14 +288,62 @@ a {
 }
 
 .back-link {
-  display: inline-block;
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
   text-decoration: none;
+  padding: 0.5rem 1rem 0.5rem 0.8rem;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  transform: translateX(-2px);
+}
+
+.upload-card {
+  text-align: center;
+}
+
+.upload-dropzone {
+  display: block;
+  margin: 1rem auto 0;
+  max-width: 320px;
+  padding: 1.5rem;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.upload-dropzone:hover {
+  border-color: var(--accent);
+  background: var(--background);
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.upload-result {
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.upload-result > p {
+  margin-bottom: 0.5rem;
+  color: var(--muted);
 }
 
 .navbar {
@@ -289,7 +368,7 @@ a {
   font-weight: 700;
   color: var(--foreground);
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 
 .navbar-links {
@@ -300,7 +379,7 @@ a {
 .navbar-link {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 600;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;

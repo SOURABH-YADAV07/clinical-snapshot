@@ -20,6 +20,13 @@ build/
 # Python Environment Variables
 .env
 
+# User-uploaded FHIR bundles (see backend/app/services/loader.py) — the
+# original assessment bundle stays tracked, uploads via the UI don't.
+raw_data/uploaded-*.json
+
+# Throwaway synthetic bundles for manually testing the upload feature.
+test-data/
+
 # =================
 # React / Node.js
 # =================
@@ -38,6 +45,8 @@ pnpm-debug.log*
 # React Production Builds (if built in-repo)
 build/
 dist/
+.next/
+*.tsbuildinfo
 
 # =================
 # General / Editors

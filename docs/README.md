@@ -1,899 +1,185 @@
 # Clinical Snapshot
 
-A small full-stack application that ingests a synthetic FHIR R4 Bundle, normalizes and reconciles the clinical data, and presents a safe, scannable patient clinical snapshot.
+A full-stack application that ingests a synthetic FHIR R4 Bundle, reconciles the clinical data conservatively, and presents a safe, scannable patient clinical snapshot — built as a take-home assessment for Centauri Health Solutions.
 
-## Project Overview
-
-This project was developed as a take-home assessment for Centauri Health Solutions.
-
-The application is designed to:
-
-- Load the provided synthetic FHIR R4 Bundle.
-- Model the required FHIR resources using Pydantic.
-- Normalize and reconcile the input data.
-- Handle conflicting and incomplete data conservatively.
-- Exclude resources that should not be presented as current clinical facts.
-- Preserve uncertainty instead of guessing or silently hiding it.
-- Expose a patient-summary API using FastAPI.
-- Render a one-page clinical snapshot using React, TypeScript, and Next.js.
-
-The primary focus of the implementation is **clinical/data safety, correctness, readable code, and clear communication of uncertainty**.
+The priority throughout is **clinical/data safety and honest communication of uncertainty** over completeness or polish: the app never invents a clinical fact, never silently merges conflicting patient records, and never presents incomplete or unverified data as though it were confirmed.
 
 ---
 
-## Assessment Data
+## Overview
 
-The application uses the provided synthetic FHIR R4 Bundle:
+- Loads and reconciles a FHIR R4 Bundle (`Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`).
+- Excludes resources that shouldn't be presented as current clinical fact (entered-in-error, inactive, stopped, resolved).
+- Preserves uncertainty instead of hiding or guessing it — missing coding displays, unresolved references, imprecise dates, and unconfirmed records are shown, never fabricated.
+- Exposes a normalized patient-summary API (FastAPI) and a one-page clinical snapshot (Next.js/TypeScript).
+- Supports uploading additional FHIR Bundles from the frontend, beyond the assessment's original single-bundle scope.
 
-```text
-scenario1_fhir_bundle[78].json
-```
-
-The Bundle contains 17 entries and includes resources such as:
-
-- Patient
-- Encounter
-- Condition
-- Observation
-- MedicationRequest
-- AllergyIntolerance
-
-The data intentionally contains production-like data-quality issues, including:
-
-- Multiple Patient resources with overlapping and conflicting fields.
-- Resources marked as entered-in-error or inactive.
-- Missing human-readable coding display values.
-- References to resources that are not present in the Bundle.
-- Dates with different levels of precision.
-- US Core extensions.
-
-The data is treated as having uncertain provenance.
-
-### Identified Data-Quality Issues
-
-A review of the Bundle surfaced further issues beyond those listed above. They
-are recorded here because they directly shape the normalization rules.
-
-**Patient reconciliation**
-
-- `patient-001` and `patient-002` disagree on middle initial, birth-date
-  precision, MRN, phone number (value and use), and address formatting.
-- Neither Patient carries `meta.lastUpdated`, so there is no recency-based way
-  to arbitrate between them.
-- Neither Patient carries a `Patient.link` element, which is FHIR's mechanism
-  for asserting a duplicate or replaced record. The Bundle therefore contains
-  no explicit assertion that the two records describe the same person.
-
-**Cross-patient data**
-
-- `medicationrequest-003` is an `active` medication belonging to `patient-002`,
-  not to the canonical patient. It is the only clinical resource attached to
-  the duplicate record.
-
-**Unresolved references**
-
-- `condition-003` references `Encounter/encounter-099`, which is absent.
-- `observation-003` references `Practitioner/practitioner-999`, which is absent.
-- No `Practitioner`, `Organization`, or `Medication` resources exist in the
-  Bundle at all.
-- Entries are identified by `fullUrl` values such as `urn:uuid:patient-001`,
-  while all references are relative (`Patient/patient-001`). Reference
-  resolution is therefore performed on resource type and id.
-
-**Coding integrity**
-
-- `allergyintolerance-001` declares the SNOMED CT system but carries the code
-  `7980-2`, which is not a well-formed SNOMED CT identifier. The system/code
-  pair is internally inconsistent even though a display value is present.
-- Conditions are coded in ICD-10-CM only, with no SNOMED CT equivalent.
-
-**Date precision**
-
-- Several values are year-only: `2015`, `2016`, `2019`, `2020`, `2022`.
-- Some timestamps fall exactly on midnight UTC (`2018-01-01T00:00:00Z`,
-  `2021-06-02T00:00:00Z`), which may indicate coarser precision that was
-  already inflated upstream.
-- A laboratory result (`observation-002`) carries year-only precision.
-
-**Missing elements**
-
-- Only one of four Observations has a `category`, so relevant observations
-  cannot be selected by category alone.
-- No Condition has a `category`, so problem-list entries cannot be
-  distinguished from encounter diagnoses.
-- No Observation has a `referenceRange` or `interpretation`, so nothing in the
-  data itself marks a value as abnormal.
-- No MedicationRequest has a `requester`.
-- `medicationrequest-002` is `stopped` with no `statusReason` and no end date.
-- No AllergyIntolerance has a `type` or `category`.
-
-**Structural conformance**
-
-- `condition-002` and `allergyintolerance-002` both carry a `clinicalStatus`
-  alongside a `verificationStatus` of `entered-in-error`. FHIR invariants
-  `con-5` and `ait-2` prohibit this, so the loader must be deliberately lenient
-  rather than strictly validating.
-- `Bundle.total` is present on a `collection` Bundle, where it is not
-  meaningful.
-- The `urn:uuid:` prefixes are not RFC 4122 UUIDs.
-
-**Privacy**
-
-- `patient-001` carries an SSN identifier. It is partially masked, has no
-  clinical value in a snapshot view, and is therefore not exposed by the API.
-
-**Temporal consistency**
-
-- `observation-003` is timestamped two minutes before the start of
-  `encounter-001` and carries no encounter reference.
-- `medicationrequest-001` is authored after `encounter-001` ends while still
-  referencing it.
-- `Bundle.timestamp` is later than every clinical event it contains, so
-  "recent" cannot be derived from the current date.
-
----
-
-## Implementation Status
-
-This section reflects the actual state of the repository, not the intended end state.
-
-| Area | Status |
-|---|---|
-| Project structure and Python environment | Complete |
-| Dependency pinning (`requirements.txt`) | Complete |
-| FHIR Bundle loader (`services/loader.py`) | Complete — loads all 17 entries |
-| FastAPI application boots, `/docs` available | Complete |
-| Input data-quality analysis | Complete — see *Identified Data-Quality Issues* |
-| Open normalization decisions | Complete — see *Resolved Decisions* |
-| FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
-| Summary response models (`models/summary.py`) | Complete — `PatientSummaryResponse` and per-section models, including `uncertainty_notes` and unresolved-reference fields |
-| Normalizer / reconciliation (`services/normalizer.py`) | Complete — implements all Resolved Decisions and the status-handling table |
-| Patient summary endpoint (`api/patients.py`) | Complete — `GET /api/patients/{patient_id}/summary` (any patient ID, not just canonical), `GET /api/patients` (list), 404 for unknown patients, CORS enabled for the Next.js dev origin |
-| Backend tests | Complete — 27 tests (normalizer + API), all passing against the real Bundle and a live server smoke test |
-| Frontend (Next.js) | Complete — TypeScript + App Router, patient list landing page + per-patient snapshot route, all 7 snapshot sections, wired to the API; lint, build, and a live golden-path + error-path check all pass |
-
-### Verified working
-
-- `GET /` returns `200`.
-- `GET /docs` returns `200` (FastAPI interactive documentation).
-- The loader resolves the Bundle path independently of the current working
-  directory and parses all 17 entries, matching the Bundle's declared `total`.
-
-### Immediate next steps
-
-1. Resolve the open normalization questions (see *Open Decisions*).
-2. Implement the FHIR Pydantic models.
-3. Implement the normalizer, with tests written alongside each safety rule.
-4. Add the patient summary endpoint.
-5. Enable CORS for the Next.js development origin, so the frontend can
-   consume the API from a different port.
-6. Scaffold and build the frontend snapshot.
+The provided data (`raw_data/scenario1_fhir_bundle[78].json`, 17 entries) intentionally contains production-like problems: two conflicting `Patient` records for the same apparent person, entered-in-error/inactive resources, missing coding displays, references to resources absent from the Bundle, and dates at varying precision. See *Normalization & Reconciliation Decisions*.
 
 ---
 
 ## Architecture
 
-The application follows a simple layered architecture:
-
 ```text
-FHIR JSON Bundle
+FHIR JSON Bundle(s) in raw_data/
        |
        v
-FHIR Pydantic Models
+FHIR Pydantic Models   backend/app/models/fhir.py
        |
        v
-Loader
+Loader                 backend/app/services/loader.py — loads & merges every raw_data/*.json
        |
        v
-Normalizer / Reconciliation
+Normalizer             backend/app/services/normalizer.py — reconciliation & safety rules
        |
        v
-Normalized Patient Summary
+Normalized Summary     backend/app/models/summary.py
        |
        v
-FastAPI
+FastAPI                backend/app/api/
        |
        v
-Next.js / React Frontend
-       |
-       v
-Clinical Snapshot
+Next.js / React         frontend/
 ```
 
-### Backend
-
-The backend is responsible for:
-
-1. Loading the FHIR Bundle.
-2. Validating/parsing the required FHIR resources.
-3. Selecting the canonical patient.
-4. Filtering invalid or non-current resources.
-5. Preserving missing or uncertain information.
-6. Handling unresolved references.
-7. Preserving source date precision.
-8. Producing a frontend-friendly patient summary.
-9. Exposing the summary through a FastAPI endpoint.
-
-### Frontend
-
-The frontend consumes the normalized patient-summary API and displays:
-
-- Patient demographics
-- Active problems
-- Active medications
-- Allergies
-- Relevant/recent encounters
-- Relevant observations
-- Data-quality and uncertainty information
-
-The UI is intentionally designed to be simple and scannable rather than highly polished or feature-heavy.
-
----
-
-## Technology Stack
-
-### Backend
-
-Versions below are the ones the project is currently developed and verified against.
-
-- Python 3.14
-- FastAPI 0.141.1
-- Pydantic 2.13.5
-- Uvicorn 0.52.4
-- pytest 9.1.1
-
-### Frontend
-
-- TypeScript
-- React
-- Next.js
-
-No database is required for this assessment.
-
-Exact pinned versions are recorded in `requirements.txt`.
-
----
-
-## Project Structure
-
-The current structure is:
+No database — the API normalizes the merged Bundle in memory on every request, so there's never a stored, potentially-stale normalized copy being served.
 
 ```text
-Clinical Snapshot/
-├── backend/
-│   ├── app/
-│   │   ├── main.py               FastAPI application
-│   │   ├── api/                  HTTP routes
-│   │   ├── models/               Pydantic models (FHIR + summary)
-│   │   └── services/
-│   │       └── loader.py         Reads the raw FHIR Bundle
-│   └── tests/                    Safety-focused backend tests
-│
-├── frontend/                     Next.js (App Router, TypeScript) clinical snapshot
-│   └── src/
-│       ├── app/
-│       │   ├── page.tsx           Patient list (landing page)
-│       │   └── patients/[patientId]/page.tsx   Per-patient snapshot
-│       ├── components/           PatientCard, PatientHeader, Problems, Medications,
-│       │                         Allergies, Encounters, Observations, DataQuality
-│       ├── lib/                  API client
-│       └── types/                TypeScript types mirroring the summary response
-│
-├── docs/
-│   ├── README.md                 This document
-│   ├── CLAUDE_PROJECT_GUIDE.md   Implementation guide
-│   └── scenario1_clinical_snapshot_CANDIDATE_1[76].pdf
-│
-├── raw_data/
-│   └── scenario1_fhir_bundle[78].json    Provided input, never modified
-│
-├── normalized_data/              Cleaned/normalized output (see below)
-│
-├── requirements.txt
-└── .gitignore
-```
+backend/app/
+├── main.py            FastAPI app
+├── api/                patients.py, bundles.py
+├── models/             fhir.py, summary.py
+└── services/           loader.py, normalizer.py
 
-Files not yet created are listed in *Implementation Status*.
-
-### `raw_data/` and `normalized_data/`
-
-`raw_data/` holds the provided Bundle exactly as supplied. It is treated as
-read-only input and is never edited in place, so the original messy data
-always remains available for comparison.
-
-`normalized_data/` is used to store the cleaned, normalized output as a backup
-or for inspection when needed.
-
-Importantly, `raw_data/` remains the single source of truth at runtime: the API
-normalizes the Bundle in memory on each request rather than reading from
-`normalized_data/`. This means a stored normalized file can never silently
-become stale clinical data being served to the frontend.
-
----
-
-# Normalization and Reconciliation Decisions
-
-## Canonical Patient
-
-The Bundle contains two Patient resources:
-
-```text
-patient-001
-patient-002
-```
-
-They contain overlapping demographic information but also conflicting fields such as phone numbers and MRNs.
-
-For this application, `patient-001` is selected as the canonical patient.
-
-### Reason
-
-`patient-001` is referenced by the primary clinical resources and contains richer demographic information.
-
-The application does **not** silently merge conflicting fields from `patient-002` into `patient-001`.
-
-This is an explicit implementation assumption rather than a claim that the two Patient resources have been conclusively proven to represent the same individual.
-
-### Current rule
-
-```text
-Canonical patient = patient-001
-```
-
-Clinical resources are attributed to the canonical patient based on their explicit patient references.
-
----
-
-## Resource Status Handling
-
-Resources with statuses indicating that they are invalid, historical, stopped, inactive, resolved, or entered-in-error are not presented as current clinical facts.
-
-Status handling is performed according to the semantics of each resource rather than using one generic rule for every FHIR resource.
-
-### Current decisions
-
-| Resource | Status | Decision |
-|---|---|---|
-| `encounter-001` | finished | Include |
-| `encounter-002` | entered-in-error | Exclude |
-| `condition-001` | active + confirmed | Include |
-| `condition-002` | inactive + entered-in-error | Exclude |
-| `condition-003` | active + confirmed | Include with uncertainty |
-| `observation-001` | final | Include |
-| `observation-002` | final | Include with uncertainty |
-| `observation-003` | final | Include |
-| `observation-004` | entered-in-error | Exclude |
-| `medicationrequest-001` | active | Include |
-| `medicationrequest-002` | stopped | Exclude from active medications |
-| `medicationrequest-003` | active, patient-002 | Exclude from patient-001 snapshot |
-| `allergyintolerance-001` | active + confirmed | Include |
-| `allergyintolerance-002` | resolved + entered-in-error | Exclude from current allergies |
-| `allergyintolerance-003` | active + unconfirmed | Include with uncertainty |
-
----
-
-## Missing Coding Displays
-
-The source may contain a coding system and code without a human-readable `display`.
-
-The application does not invent a display value.
-
-For example:
-
-```text
-system: http://loinc.org
-code: 4548-4
-display: unavailable
-```
-
-The normalized representation preserves the code and indicates that the display is unavailable.
-
-The frontend communicates this explicitly rather than presenting a guessed clinical name.
-
-Example:
-
-```text
-Code: 4548-4
-Display name unavailable
+frontend/src/
+├── app/                page.tsx (home), patients/, patients/[patientId]/, upload/
+├── components/         one per snapshot section, plus Navbar, CodeLabel
+├── lib/                API client, date/title-case formatting, partition
+└── types/               mirrors the summary API response
 ```
 
 ---
 
-## Unresolved References
+## Tech Stack
 
-Some resources reference resources that are not present in the Bundle.
-
-For example:
-
-```text
-Encounter/encounter-099
-```
-
-is referenced by `condition-003`, but that Encounter is not present in the supplied Bundle.
-
-The application:
-
-- Does not crash.
-- Does not invent the missing resource.
-- Does not silently remove the reference.
-- Preserves the original reference where useful.
-- Marks the reference as unresolved.
-
-Example normalized representation:
-
-```json
-{
-  "encounter": null,
-  "encounter_reference": "Encounter/encounter-099",
-  "reference_resolved": false
-}
-```
-
-Unresolved-reference information may also be surfaced through the data-quality section.
+**Backend:** Python, FastAPI, Pydantic, pytest — exact pinned versions in `requirements.txt`.
+**Frontend:** TypeScript, React, Next.js (App Router).
 
 ---
 
-## Date Precision
+## Local Setup
 
-The source contains dates with different levels of precision.
+**Prerequisites:** Python 3.13+, Node.js 18+, Git. Commands below run from the project root unless noted.
 
-Examples include:
-
-```text
-1958-03-12
-2025-11-04T14:15:00Z
-2020
-2019
-2022
-2015
-```
-
-The application preserves the precision provided by the source.
-
-For example:
-
-```text
-2020
-```
-
-will not be converted into:
-
-```text
-2020-01-01
-```
-
-because doing so would introduce information that was not present in the source.
-
----
-
-## Uncertainty Handling
-
-The application intentionally communicates uncertainty rather than hiding it.
-
-Examples include:
-
-```text
-Unconfirmed
-Display name unavailable
-Reference could not be resolved
-Unknown
-```
-
-An uncertain record should not be visually presented in the same way as a confirmed/current record when that would create a misleading impression of certainty.
-
-For example, the active but unconfirmed allergy is retained and shown as unconfirmed rather than being discarded or presented as a confirmed allergy.
-
----
-
-# Normalized Patient Summary
-
-The API is designed to return a simplified representation intended for frontend consumption rather than exposing the raw FHIR Bundle.
-
-The planned response shape is:
-
-```json
-{
-  "patient": {
-    "id": "patient-001",
-    "name": "...",
-    "birth_date": "...",
-    "gender": "...",
-    "phone": "...",
-    "address": "..."
-  },
-  "problems": [],
-  "medications": [],
-  "allergies": [],
-  "encounters": [],
-  "observations": [],
-  "data_quality": []
-}
-```
-
-The exact Pydantic response models will be finalized during implementation.
-
----
-
-# API
-
-Two endpoints are implemented:
-
-```http
-GET /api/patients
-```
-
-Returns a lightweight list of every `Patient` resource in the Bundle (`id`,
-`name`, `birth_date`, `is_canonical`, and a `note` explaining non-canonical
-records). This backs the frontend's patient-selection landing page — clicking
-a card opens that patient's full snapshot. It is not scoped to the assessment's
-original single-patient requirement; it was added afterward specifically so
-`patient-002` (the non-canonical duplicate) is reachable and visibly labeled
-as such, rather than only being discoverable by already knowing its ID.
-
-```http
-GET /api/patients/{patient_id}/summary
-```
-
-Example:
-
-```http
-GET /api/patients/patient-001/summary
-```
-
-The endpoint:
-
-1. Validates the requested patient ID.
-2. Loads the FHIR Bundle.
-3. Normalizes the relevant data.
-4. Returns the normalized patient summary.
-5. Handles invalid or unresolved references safely.
-6. Returns 404 when the requested patient cannot be found.
-
-This works for *any* patient ID present in the Bundle, not just the canonical
-one — `GET /api/patients/patient-002/summary` returns a valid (mostly empty)
-summary for the duplicate record, built the same way. The only
-canonical-patient-specific logic is the cross-patient medication flag (see
-*Resolved Decisions* #1), which only fires when summarizing `patient-001`.
-
-FastAPI's interactive documentation will also be available through:
-
-```text
-/docs
-```
-
----
-
-# Frontend
-
-The frontend will provide a single-page clinical snapshot.
-
-The planned layout is approximately:
-
-```text
-Patient Demographics
-
-Active Problems        Medications
-
-Allergies              Recent Encounters
-
-Relevant Observations
-
-Data Quality / Uncertainty
-```
-
-The interface prioritizes:
-
-- Fast scanning
-- Clear hierarchy
-- Readability
-- Explicit uncertainty
-- Avoiding fabricated information
-
-The frontend will not attempt to hide data-quality problems simply to make the interface look cleaner.
-
----
-
-# Testing
-
-Testing will focus primarily on the data-safety and normalization decisions.
-
-Planned tests include:
-
-- Entered-in-error Encounter is not shown as a current/recent encounter.
-- Inactive/entered-in-error Condition is not shown as an active problem.
-- Active confirmed Condition is retained.
-- Stopped MedicationRequest is not shown as an active medication.
-- Confirmed Penicillin allergy is retained.
-- Unconfirmed allergy is retained with visible uncertainty.
-- Entered-in-error/resolved allergy is not shown as a current confirmed allergy.
-- Missing coding display does not result in an invented display.
-- Unresolved references do not crash normalization.
-- Unresolved references remain represented where appropriate.
-- Partial dates retain their original precision.
-- Canonical patient selection follows the documented rule.
-- Resources belonging to the non-canonical patient are not incorrectly attributed to the canonical patient.
-
-The test suite will prioritize meaningful normalization and safety decisions rather than large numbers of trivial tests.
-
----
-
-# Clinical Safety Principles
-
-The implementation follows these principles:
-
-1. Never invent clinical facts.
-2. Never silently merge conflicting patient data.
-3. Never treat an unavailable reference as resolved.
-4. Never turn a partial date into a more precise date.
-5. Never invent a coding display when the source does not provide one.
-6. Do not present entered-in-error data as current clinical fact.
-7. Do not present inactive, stopped, or resolved resources as current without an appropriate reason.
-8. Preserve uncertainty where it affects interpretation.
-9. Keep assumptions explicit and documented.
-10. Prefer deterministic and conservative behavior.
-
----
-
-# Running the Application
-
-Requires Python 3.13 or newer. The commands below are run from the project root
-unless stated otherwise.
-
-## Environment setup
-
-Create and activate a virtual environment, then install the dependencies.
-
-Windows (PowerShell):
-
+**1. Backend**
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-
-macOS / Linux:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Backend
-
-The application module is `app.main`, resolved relative to the `backend`
-directory. The server must therefore be started from `backend`:
-
-```bash
 cd backend
 uvicorn app.main:app --reload
 ```
+Verify: `http://127.0.0.1:8000/docs` loads the FastAPI interactive docs.
 
-The API is then available at:
-
-```text
-http://127.0.0.1:8000/          Service check
-http://127.0.0.1:8000/docs      FastAPI interactive documentation
-```
-
-Once implemented, the patient summary endpoint will be available at:
-
-```text
-http://127.0.0.1:8000/api/patients/patient-001/summary
-```
-
-## Tests
-
-Tests are also run from the `backend` directory, so that `app` resolves
-correctly on the import path:
-
-```bash
-cd backend
-pytest
-```
-
-27 tests as of this writing (normalizer + API); see *Testing*.
-
-## Frontend
-
-The frontend is a Next.js (App Router, TypeScript) app in `frontend/`. Both
-routes fetch server-side on each request, so they always reflect a live call
-to the backend rather than a cached/stale copy:
-
-- `/` — a patient-selection landing page. Fetches `GET /api/patients` and
-  renders each as a clickable card; the non-canonical duplicate record is
-  visibly labeled rather than hidden.
-- `/patients/{patientId}` — the clinical snapshot for that patient (the
-  original single-page layout: demographics, problems, medications,
-  allergies, encounters, observations, data quality), with a link back to
-  the patient list.
-
+**2. Frontend** (separate terminal)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Verify: `http://localhost:3000` loads the welcome page, and `/patients` shows the demo patients.
 
-The app is then available at `http://localhost:3000`. It expects the backend
-to be running at `http://127.0.0.1:8000` by default; override this by copying
-`.env.local.example` to `.env.local` and setting `NEXT_PUBLIC_API_BASE_URL`.
-
----
-
-# Development Decisions
-
-The implementation intentionally avoids unnecessary complexity.
-
-The following are not required for the core assessment:
-
-- Database
-- Authentication
-- Deployment
-- Advanced search
-- Complex state management
-- Animations
-- Advanced UI features
-- Full FHIR R4 implementation
-
-The priority is correctness, safe data handling, a working API, a working frontend, meaningful tests, and clear documentation.
-
----
-
-# Resolved Decisions
-
-The following questions materially affect the normalizer. Each was recorded
-before implementation, decided below with its rationale, and will be enforced
-by the normalizer and covered by tests.
-
-**1. The active medication on the non-canonical patient.**
-`medicationrequest-003` is `active` but belongs to `patient-002`. Excluding it
-from the canonical patient's medication list is correct, because attributing it
-would mean silently merging two records that the Bundle never links. However,
-excluding it without trace would hide an active prescription.
-
-*Resolution:* Excluded from `patient-001`'s Active Medications. Reported in the
-`data_quality` section as an active medication on the unmerged duplicate
-record, referencing the medication code so it stays traceable without being
-displayed as though it belonged to the canonical patient.
-
-**2. Suspected false precision.**
-Values such as `2018-01-01T00:00:00Z` are valid full timestamps, but midnight
-on the first of January is a common artifact of a year-only value being padded
-upstream.
-
-*Resolution:* Any datetime with an exact `T00:00:00Z` time component is
-displayed literally (never truncated or altered) and additionally flagged in
-`data_quality` as suspected coarser precision than stated. This is a single
-deterministic, resource-agnostic signal — exact midnight UTC — rather than a
-special case for January 1st, so it generalizes to any resource. It affects
-`condition-001.onsetDateTime`, `condition-002.onsetDateTime`, and
-`allergyintolerance-001.recordedDate`.
-
-**3. The reference point for "recent" encounters.**
-`Bundle.timestamp` is later than every event in the Bundle, and the real
-current date is later still. Anchoring recency to the current date would cause
-the meaning of "recent" to drift over time.
-
-*Resolution:* Recency is anchored to `Bundle.timestamp`, not wall-clock
-"today." No hard cutoff window is applied — all non-excluded encounters are
-returned sorted by date, each labeled with its age relative to
-`Bundle.timestamp`. An arbitrary window (e.g. "last 12 months") would risk
-hiding a valid encounter for a reason not grounded in the data itself.
-
-**4. The malformed allergy coding.**
-`allergyintolerance-001` pairs the SNOMED CT system with a code that is not
-SNOMED-shaped, while supplying the display "Penicillin". The choice is between
-trusting the supplied display and additionally marking the coding as suspect.
-
-*Resolution:* The supplied display is trusted and shown, since it was provided
-by the source rather than invented by the application. The system/code
-mismatch is additionally surfaced in `data_quality` so the inconsistency is
-never silently hidden.
-
-**5. Possible duplicate allergy.**
-`allergyintolerance-003` carries a SNOMED-shaped code with no display, and may
-denote a concept overlapping `allergyintolerance-001`. Its meaning is not
-inferred, since doing so would amount to guessing a display value. Both failure
-modes carry risk: an unnoticed duplicate clutters the allergy list, while a
-wrongly assumed duplicate could suppress a distinct allergy. Verification would
-require a terminology service, which is out of scope here.
-
-*Resolution:* Both entries are retained as separate allergies. No duplicate
-linkage is inferred or asserted between them. `allergyintolerance-003` is
-shown with its code, display marked unavailable, and its `unconfirmed` status
-visible.
-
----
-
-# Tradeoffs
-
-This section will be updated as implementation decisions are made.
-
-Current tradeoffs include:
-
-- A limited subset of FHIR R4 is modeled instead of implementing the complete specification.
-- `patient-001` is selected as the canonical patient based on the available Bundle evidence and documented as an assumption.
-- Conflicting demographic fields are not silently merged.
-- Missing terminology display values are not guessed.
-- Unresolved references are preserved rather than fabricated or silently discarded.
-- Source date precision is preserved instead of normalized into artificial precision.
-
----
-
-# What Would Be Improved With More Time
-
-This section will be updated after the core implementation is complete.
-
-Potential areas for future improvement may include:
-
-- More comprehensive FHIR resource support.
-- More extensive normalization rules.
-- Additional test coverage for unusual FHIR structures.
-- More sophisticated reference resolution across external sources.
-- More comprehensive terminology handling.
-- Additional frontend accessibility and usability improvements.
-- Production deployment considerations.
-
-These improvements are intentionally deferred until the core requirements are complete and tested.
-
----
-
-# AI-Assisted Development
-
-AI tools are being used as development assistants rather than autonomous decision-makers.
-
-Important implementation decisions are reviewed against:
-
-1. The assessment requirements.
-2. The actual FHIR input data.
-3. Clinical/data-safety considerations.
-4. Tests demonstrating the intended behavior.
-
-Specific AI usage, tools/models, examples of acceleration, and examples where AI suggestions were corrected or rejected will be documented separately in:
-
-```text
-AI_USAGE.md
+**3. Tests**
+```bash
+cd backend
+pytest
 ```
+40 tests (normalizer, loader, API), all passing.
+
+**Configuration.** The frontend expects the backend at `http://127.0.0.1:8000` by default. To point it elsewhere, copy `frontend/.env.local.example` to `frontend/.env.local` and set `NEXT_PUBLIC_API_BASE_URL`.
+
+**Troubleshooting.**
+- *`uvicorn` fails to bind / port 8000 already in use:* something else on the machine may already be using it — this happened during development (an unrelated local service, not this project). Run on a different port (`uvicorn app.main:app --reload --port 8001`) and set `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001` for the frontend.
+- *Frontend loads but shows "Could not load..." or "Patient not found":* the backend isn't reachable at the URL the frontend expects — confirm `uvicorn` is actually running there and `NEXT_PUBLIC_API_BASE_URL` matches.
+- *CORS errors in the browser console:* the frontend's origin must be listed in `allow_origins` in `backend/app/main.py` (defaults cover `localhost:3000` and `127.0.0.1:3000`).
 
 ---
 
-# Definition of Done
+## API
 
-## Backend
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/patients` | Lightweight list of every patient in the merged dataset, for the frontend's patient picker. |
+| `GET /api/patients/{patient_id}/summary` | The normalized clinical snapshot for one patient. `404` if not found. |
+| `POST /api/bundles` | Upload a new FHIR Bundle (JSON body). Validated, saved to `raw_data/`, returns the patients found in it. |
 
-- [x] Bundle loads successfully.
-- [x] FastAPI application runs and `/docs` is available.
-- [x] Required FHIR resources are modeled with Pydantic.
-- [x] Patient reconciliation is implemented and documented.
-- [x] Invalid/error statuses are handled.
-- [x] Active/inactive/stopped/resolved states are handled appropriately.
-- [x] Missing coding displays are handled safely.
-- [x] Broken references are handled safely.
-- [x] Date precision is preserved.
-- [x] Patient summary response works.
-- [x] Patient summary endpoint is exposed.
-- [x] CORS is configured for the frontend origin.
-- [x] Backend tests pass. (24/24: normalizer + API)
+---
 
-## Frontend
+## Data
 
-- [x] Patient demographics are displayed.
-- [x] Active problems are displayed.
-- [x] Active medications are displayed.
-- [x] Allergies are displayed.
-- [x] Recent/relevant encounters are displayed.
-- [x] Relevant observations are displayed.
-- [x] Uncertainty is visible. (per-item uncertainty notes, unresolved-reference flags, unconfirmed-allergy styling, Data Quality section)
-- [x] Missing information is not fabricated. (`CodeLabel` shows "Display name unavailable" rather than guessing)
-- [x] No major console/build errors. (`next lint` and `next build` both clean)
+`raw_data/` holds every Bundle the API knows about. The original assessment file is never edited in place. Uploads (via `/upload` or `POST /api/bundles`) add new files here — never overwriting anything — and the loader merges every `.json` file on each request, so a new upload is live immediately with no restart. If two files define the same resource id, the first one loaded wins and the collision is logged, never silently overwritten.
 
-## Submission
+`normalized_data/` is a backup/inspection copy only — the API never reads from it, so it can never serve stale data.
 
-- [x] README.md
-- [x] Provided FHIR data
-- [x] AI_USAGE.md
-- [x] Backend
-- [x] Frontend
-- [x] Tests
-- [ ] No secrets or API keys committed
-- [x] Application can be run using the documented instructions
+Sample multi-patient Bundles for exercising the upload feature are in `test-data/` (gitignored).
+
+---
+
+## Normalization & Reconciliation Decisions
+
+**Canonical patient.** The Bundle contains two conflicting `Patient` records (`patient-001`, `patient-002`) with no `Patient.link` or `meta.lastUpdated` to arbitrate between them. `patient-001` is treated as canonical (richer demographics, referenced by the clinical resources) — an explicit, documented assumption, not a claim of proven identity. Conflicting fields are never silently merged; `patient-002`'s own active medication is excluded from `patient-001`'s summary and reported in Data Quality instead.
+
+**Resource status.** Entered-in-error, inactive, resolved, and stopped resources are excluded from their respective "current" lists, with semantics judged per resource type rather than one blanket rule.
+
+**Missing coding displays.** Never guessed. The code/system is preserved and the frontend shows "Display name unavailable."
+
+**Unresolved references.** Never invented, never silently dropped. Preserved and marked `reference_resolved: false`.
+
+**Date precision.** Preserved exactly as given — `2020` is never turned into `2020-01-01`. Datetimes landing on exact midnight UTC are additionally flagged as suspected coarser precision.
+
+**Uncertainty.** Surfaced, not hidden. Items with a missing display, an unresolved reference, or (for allergies) a non-confirmed verification status are shown separately from fully-known data — in their own "Incomplete or Unverified Items" section — rather than mixed into the main list with only a small text difference to notice. Routing is driven entirely by field values, never by resource id, so it responds correctly as source data changes.
+
+---
+
+## Clinical Safety Principles
+
+1. Never invent clinical facts.
+2. Never silently merge conflicting patient data.
+3. Never treat an unavailable reference as resolved.
+4. Never turn a partial date into a more precise date.
+5. Never invent a coding display when the source doesn't provide one.
+6. Don't present entered-in-error data as current clinical fact.
+7. Don't present inactive, stopped, or resolved resources as current without reason.
+8. Preserve uncertainty where it affects interpretation.
+9. Keep assumptions explicit and documented.
+10. Prefer deterministic, conservative behavior over inference.
+
+---
+
+## Testing
+
+Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 40 tests total; run with `pytest` from `backend/`.
+
+---
+
+## Tradeoffs
+
+- A limited subset of FHIR R4 is modeled, not the full specification.
+- `patient-001` is selected as canonical based on available evidence, documented as an assumption rather than a proven fact.
+- Missing terminology displays and duplicate-record identity are never guessed — both would require a real terminology/matching service, out of scope here.
+- No database, auth, or deployment tooling — not required for this assessment.
+
+---
+
+## What Would Be Improved With More Time
+
+- Fuller FHIR resource support and terminology handling.
+- Automated patient-matching (with a real terminology/MPI service) instead of the current single documented duplicate pair.
+- More extensive frontend accessibility and usability polish.
+- Production-readiness: auth, rate limiting on uploads, structured logging/monitoring.
+
+---
+
+## AI-Assisted Development
+
+Built with Claude Code as a development assistant, with important decisions reviewed against the assessment requirements, the actual data, and clinical-safety considerations rather than accepted automatically. See `AI_USAGE.md` for tool/model details, concrete examples of acceleration, and real examples of mistakes caught and corrected during development.

@@ -1,4 +1,19 @@
 import type { PatientSummary } from "@/types/summary";
+import { formatDate } from "@/lib/formatDate";
+
+const GENDER_ICONS: Record<string, string> = {
+  male: "♂",
+  female: "♀",
+};
+
+function formatGender(gender: string | null): string | null {
+  if (!gender) {
+    return null;
+  }
+  const titleCased = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+  const icon = GENDER_ICONS[gender.toLowerCase()];
+  return icon ? `${icon} ${titleCased}` : titleCased;
+}
 
 export function PatientHeader({ patient }: { patient: PatientSummary }) {
   return (
@@ -7,11 +22,11 @@ export function PatientHeader({ patient }: { patient: PatientSummary }) {
       <dl>
         <div>
           <dt>DOB</dt>
-          <dd>{patient.birth_date ?? "Unknown"}</dd>
+          <dd>{formatDate(patient.birth_date) ?? "Unknown"}</dd>
         </div>
         <div>
           <dt>Gender</dt>
-          <dd>{patient.gender ?? "Unknown"}</dd>
+          <dd>{formatGender(patient.gender) ?? "Unknown"}</dd>
         </div>
         {patient.phone && (
           <div>

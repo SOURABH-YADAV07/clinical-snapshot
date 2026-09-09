@@ -7,7 +7,7 @@ export function DataQuality({ flags }: { flags: DataQualityFlag[] }) {
       {flags.length === 0 ? (
         <p className="empty">No data-quality issues identified for this snapshot.</p>
       ) : (
-        <ul>
+        <ul className="data-quality-log">
           {flags.map((flag, index) => (
             <li key={index}>
               {flag.resource_type && flag.resource_id && (

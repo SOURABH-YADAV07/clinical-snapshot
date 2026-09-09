@@ -18,6 +18,7 @@ export interface PatientListItem {
   id: string;
   name: string | null;
   birth_date: string | null;
+  phone: string | null;
   is_canonical: boolean;
   note: string | null;
 }

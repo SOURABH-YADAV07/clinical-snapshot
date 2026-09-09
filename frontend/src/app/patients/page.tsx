@@ -18,7 +18,6 @@ export default async function PatientListPage() {
 
   return (
     <main className="page">
-      <h1>Patients</h1>
       {patients.length === 0 ? (
         <p className="empty">No patients found.</p>
       ) : (

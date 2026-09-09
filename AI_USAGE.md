@@ -33,10 +33,11 @@ application being generated in one pass.
   against the real Bundle (not mocked fixtures), covering every documented
   safety case.
 - **Frontend scaffolding.** Generated the Next.js app, all 7 display
-  components, and the shared uncertainty-handling primitives (`CodeLabel`,
-  `UncertaintyNotes`) in one pass, then verified with `next lint`, `next
-  build`, and a live run against the backend covering both the golden path
-  and the error paths (patient not found, backend unreachable).
+  components, and the shared uncertainty-handling primitives (`CodeLabel`
+  for the "display unavailable" pattern) in one pass, then verified with
+  `next lint`, `next build`, and a live run against the backend covering
+  both the golden path and the error paths (patient not found, backend
+  unreachable).
 - **Live debugging.** When the frontend showed "Patient not found" after
   being wired up, diagnosed it by curling the backend directly and
   discovering port 8000 was occupied by an unrelated third-party service (a
@@ -49,6 +50,13 @@ application being generated in one pass.
   the already-documented `CANONICAL_PATIENT_ID` constant, and confirmed live
   that `patient-002`'s own snapshot renders correctly (its own name, its own
   active medication, no fabricated display for its undisplayed RXNorm code).
+- **Bundle upload (scope addition).** Reused `build_patient_summary`/
+  `list_patients` unchanged for uploaded data — they already took a plain
+  dict, so the only new backend code was loading/merging files and an
+  upload endpoint. Building this forced a real hardening pass: resource
+  parsing (`_parse_resources`) now skips and logs a malformed resource
+  instead of crashing the whole request, since uploaded data is no longer
+  guaranteed well-formed the way the fixed demo file was.
 
 ---
 
@@ -70,14 +78,60 @@ verified against the real Bundle, before the developer saw it. Fixed so
 `false` only when a reference exists but points at a resource absent from the
 Bundle. Tests were re-run to confirm no other behavior changed.
 
+**Self-caught: "non-canonical" silently meant "duplicate of patient-001," which
+broke the moment a third patient existed.** `list_patients()` and the
+cross-patient-medication flag both derived "is this a duplicate record?" from
+`patient.id != CANONICAL_PATIENT_ID` — correct with exactly two patients (one
+confirmed duplicate pair), but never actually meant that generally. Building
+the upload feature made this observable for the first time: the first
+end-to-end test uploaded an unrelated synthetic patient, and the API labeled
+him "Not selected as the canonical record (see patient-001)" — asserting a
+duplicate relationship to Dorothy Whitfield that was simply false. This
+wasn't caught by reasoning about the code; it was caught by actually running
+the new feature against real data and reading the response, which is why that
+verification step matters. Fixed by replacing the implicit rule with an
+explicit `KNOWN_DUPLICATE_PATIENT_IDS = {"patient-002"}` set — one
+documented, human-reviewed id, not "everyone else" — and added a regression
+test (`test_unrelated_uploaded_patient_is_not_flagged_as_duplicate`).
+
+**Self-caught: encounters leaked across patients — the most significant bug
+found in this project.** At the developer's request, generated a synthetic
+12-patient test Bundle to exercise the upload feature at a realistic scale,
+then actually uploaded it to a live (isolated — never the real `raw_data/`)
+server and read every response rather than assuming the feature worked.
+`patient-106`'s summary came back with four Encounters, none of which were
+his: three belonged to other synthetic patients, and one —
+`encounter-001` — belonged to `patient-001` in the *original* demo Bundle.
+The cause: `build_patient_summary`'s `visible_encounters` list was built
+from every `Encounter` in the entire (now merged, multi-file) dataset,
+filtered only by status, never by which patient it belonged to. This bug
+predates the upload feature entirely — it was already live in the
+single-canonical-patient version of the app, just structurally invisible,
+because there was only ever one patient (`patient-002`) whose encounter list
+could have leaked into, and that list was already empty for unrelated
+reasons. It took a dataset with more than one patient actually having
+encounters to surface it. The same missing scoping also meant a Condition
+could "resolve" its `encounter` reference to a different patient's
+Encounter. Fixed by scoping the encounters dict to the requesting patient
+*before* it's used for either the visible list or reference resolution, with
+a regression test that specifically checks a condition referencing another
+patient's real encounter does *not* resolve
+(`test_encounters_are_scoped_to_the_requested_patient`). This is the
+strongest evidence in this project for verifying live against real data
+runs, rather than trusting that logic which looks correct actually is.
+
 **Note on developer review in this session.** The five open normalization
 questions (see *Resolved Decisions* in `docs/README.md`) were presented to the
 developer as explicit proposed rules with rationale before any code was
-written, and approved as a batch. As a result, this session does not contain
-a case of the developer rejecting or changing a specific AI proposal after
-implementation — only the self-caught issue above. This section should be
-updated with a real example if one arises from further review, rather than
-fabricating one here.
+written, and approved as a batch. Later feature work (the upload persistence
+model) involved a genuine architecture question put to the developer with
+three options and their tradeoffs; the developer chose a fourth approach
+(save uploads to `raw_data/`, merge all files on load) not among those
+options. As a result, this session's clearest examples of course-correction
+are self-caught (the two above) rather than the developer overriding a
+specific AI-authored line of code after the fact — this section should be
+updated with that kind of example if one arises, rather than fabricating one
+here.
 
 ---
 
@@ -86,5 +140,5 @@ fabricating one here.
 Each phase (open decisions &rarr; FHIR models &rarr; summary models &rarr;
 normalizer + tests &rarr; API &rarr; frontend) was implemented, verified
 against the real Bundle or a live server, and summarized to the developer
-before moving to the next phase — matching the propose-review-accept loop
-described in `docs/CLAUDE_PROJECT_GUIDE.md`.
+before moving to the next phase — a propose-review-accept loop rather than
+generating the whole application in one pass.

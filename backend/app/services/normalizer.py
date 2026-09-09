@@ -1,6 +1,9 @@
+import logging
 import re
 from datetime import datetime
 from typing import Any
+
+from pydantic import ValidationError
 
 from app.models.fhir import (
     FHIRAllergyIntolerance,
@@ -26,10 +29,22 @@ from app.models.summary import (
     ProblemSummary,
 )
 
+logger = logging.getLogger(__name__)
+
 # Documented assumption (see docs/README.md, "Resolved Decisions" #1):
 # patient-001 is treated as canonical because clinical resources reference it
 # and it carries richer demographics. patient-002 is never merged into it.
 CANONICAL_PATIENT_ID = "patient-001"
+
+# patient-002 is the one specific record that has been human-reviewed and
+# documented as an unmerged duplicate of the canonical patient. This is
+# deliberately NOT "every patient that isn't CANONICAL_PATIENT_ID" — now that
+# bundles can be uploaded and merged (services/loader.py), that would flag
+# any newly-uploaded, entirely unrelated patient as a "duplicate" of Dorothy
+# Whitfield, which is false. There is no automated patient-matching in this
+# application; duplicate relationships are only ever asserted here after
+# human review, one id at a time.
+KNOWN_DUPLICATE_PATIENT_IDS: set[str] = {"patient-002"}
 
 _MIDNIGHT_UTC_RE = re.compile(r"T00:00:00Z$")
 _SNOMED_SHAPE_RE = re.compile(r"^\d{6,18}$")
@@ -53,20 +68,29 @@ def build_patient_summary(bundle_dict: dict[str, Any], patient_id: str) -> Patie
     bundle_timestamp = bundle_dict.get("timestamp")
     data_quality: list[DataQualityFlag] = []
 
-    all_encounters = {
-        eid: _build_encounter(enc, bundle_timestamp) for eid, enc in resources["Encounter"].items()
+    # Scoped to this patient before use anywhere else: a reference resolving
+    # to a *different* patient's encounter is not a real resolution, and an
+    # encounter belonging to another patient must never appear in this
+    # patient's own encounters list. Status is intentionally not filtered
+    # here — reference resolution cares whether the resource exists at all,
+    # regardless of its own status (see the encounter_reference decision
+    # notes); the status filter only applies to the visible list below.
+    patient_encounters = {
+        eid: _build_encounter(enc, bundle_timestamp, data_quality)
+        for eid, enc in resources["Encounter"].items()
+        if _reference_parts(enc.subject) == ("Patient", patient_id)
     }
     visible_encounters = [
         summary
-        for eid, summary in all_encounters.items()
+        for eid, summary in patient_encounters.items()
         if resources["Encounter"][eid].status != "entered-in-error"
     ]
     visible_encounters.sort(key=lambda e: e.start or "", reverse=True)
 
-    problems = _build_problems(resources["Condition"], patient_id, all_encounters, data_quality)
-    medications = _build_medications(resources["MedicationRequest"], patient_id)
+    problems = _build_problems(resources["Condition"], patient_id, patient_encounters, data_quality)
+    medications = _build_medications(resources["MedicationRequest"], patient_id, data_quality)
     allergies = _build_allergies(resources["AllergyIntolerance"], patient_id, data_quality)
-    observations = _build_observations(resources["Observation"], patient_id, all_encounters, data_quality)
+    observations = _build_observations(resources["Observation"], patient_id, patient_encounters, data_quality)
 
     if patient_id == CANONICAL_PATIENT_ID:
         _flag_cross_patient_medications(resources["MedicationRequest"], data_quality)
@@ -87,7 +111,7 @@ def list_patients(bundle_dict: dict[str, Any]) -> list[PatientListItem]:
     items = []
     for patient in resources["Patient"].values():
         built = _build_patient(patient)
-        is_canonical = patient.id == CANONICAL_PATIENT_ID
+        is_canonical = patient.id not in KNOWN_DUPLICATE_PATIENT_IDS
         note = (
             None
             if is_canonical
@@ -101,6 +125,7 @@ def list_patients(bundle_dict: dict[str, Any]) -> list[PatientListItem]:
                 id=built.id,
                 name=built.name,
                 birth_date=built.birth_date,
+                phone=built.phone,
                 is_canonical=is_canonical,
                 note=note,
             )
@@ -110,13 +135,27 @@ def list_patients(bundle_dict: dict[str, Any]) -> list[PatientListItem]:
 
 
 def _parse_resources(bundle_dict: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    # Malformed individual resources (relevant once bundles can be uploaded,
+    # not just the known-good demo file) are skipped and logged rather than
+    # crashing the whole request over one bad entry.
     parsed: dict[str, dict[str, Any]] = {rt: {} for rt in _MODEL_BY_RESOURCE_TYPE}
     for entry in bundle_dict.get("entry", []):
         raw = entry.get("resource", {})
+        if not isinstance(raw, dict):
+            continue
         model_cls = _MODEL_BY_RESOURCE_TYPE.get(raw.get("resourceType"))
         if model_cls is None:
             continue
-        model = model_cls.model_validate(raw)
+        try:
+            model = model_cls.model_validate(raw)
+        except ValidationError as error:
+            logger.warning(
+                "Skipping malformed %s resource (id=%s): %s",
+                raw.get("resourceType"),
+                raw.get("id"),
+                error,
+            )
+            continue
         parsed[model.resourceType][model.id] = model
     return parsed
 
@@ -154,6 +193,19 @@ def _precision_note(dt: str | None) -> str | None:
     if _MIDNIGHT_UTC_RE.search(dt):
         return "Suspected coarser precision than stated (value falls exactly on midnight UTC)."
     return None
+
+
+def _add_note(
+    notes: list[str],
+    data_quality: list[DataQualityFlag],
+    message: str,
+    resource_type: str,
+    resource_id: str,
+) -> None:
+    # Every per-item uncertainty note is mirrored into the top-level data_quality
+    # log, so nothing shown there is ever the only place it's recorded.
+    notes.append(message)
+    data_quality.append(DataQualityFlag(message=message, resource_type=resource_type, resource_id=resource_id))
 
 
 def _age_days(start: str | None, bundle_timestamp: str | None) -> int | None:
@@ -197,10 +249,15 @@ def _build_patient(patient: FHIRPatient) -> PatientSummary:
     )
 
 
-def _build_encounter(enc: FHIREncounter, bundle_timestamp: str | None) -> EncounterSummary:
+def _build_encounter(
+    enc: FHIREncounter, bundle_timestamp: str | None, data_quality: list[DataQualityFlag]
+) -> EncounterSummary:
     start = enc.period.start if enc.period else None
     end = enc.period.end if enc.period else None
-    notes = [note for note in [_precision_note(start)] if note]
+    notes: list[str] = []
+    precision_note = _precision_note(start)
+    if precision_note:
+        _add_note(notes, data_quality, precision_note, "Encounter", enc.id)
     return EncounterSummary(
         id=enc.id,
         type=_code_display(enc.type[0]) if enc.type else None,
@@ -241,7 +298,10 @@ def _build_problems(
         if clinical_status not in {"active", "recurrence", "relapse"}:
             continue
 
-        notes = [note for note in [_precision_note(cond.onsetDateTime)] if note]
+        notes: list[str] = []
+        precision_note = _precision_note(cond.onsetDateTime)
+        if precision_note:
+            _add_note(notes, data_quality, precision_note, "Condition", cond.id)
         encounter_summary, encounter_reference, resolved = _resolve_encounter_reference(
             cond.encounter, all_encounters
         )
@@ -272,7 +332,9 @@ def _build_problems(
 
 
 def _build_medications(
-    med_requests: dict[str, FHIRMedicationRequest], patient_id: str
+    med_requests: dict[str, FHIRMedicationRequest],
+    patient_id: str,
+    data_quality: list[DataQualityFlag],
 ) -> list[MedicationSummary]:
     results = []
     for med in med_requests.values():
@@ -283,7 +345,10 @@ def _build_medications(
             continue
 
         instructions = med.dosageInstruction[0].text if med.dosageInstruction else None
-        notes = [note for note in [_precision_note(med.authoredOn)] if note]
+        notes: list[str] = []
+        precision_note = _precision_note(med.authoredOn)
+        if precision_note:
+            _add_note(notes, data_quality, precision_note, "MedicationRequest", med.id)
         results.append(
             MedicationSummary(
                 id=med.id,
@@ -302,7 +367,7 @@ def _flag_cross_patient_medications(
 ) -> None:
     for med in med_requests.values():
         parts = _reference_parts(med.subject)
-        if med.status == "active" and parts and parts[0] == "Patient" and parts[1] != CANONICAL_PATIENT_ID:
+        if med.status == "active" and parts and parts[0] == "Patient" and parts[1] in KNOWN_DUPLICATE_PATIENT_IDS:
             code = _code_display(med.medicationCodeableConcept)
             data_quality.append(
                 DataQualityFlag(
@@ -335,9 +400,15 @@ def _build_allergies(
         if clinical_status != "active":
             continue
 
-        notes = []
+        notes: list[str] = []
         if verification_status != "confirmed":
-            notes.append(f"Verification status is {verification_status or 'unknown'}.")
+            _add_note(
+                notes,
+                data_quality,
+                f"Verification status is {verification_status or 'unknown'}.",
+                "AllergyIntolerance",
+                allergy.id,
+            )
 
         code = _code_display(allergy.code)
         if (
@@ -372,7 +443,7 @@ def _build_allergies(
 
         precision_note = _precision_note(allergy.recordedDate)
         if precision_note:
-            notes.append(precision_note)
+            _add_note(notes, data_quality, precision_note, "AllergyIntolerance", allergy.id)
 
         results.append(
             AllergySummary(
@@ -401,7 +472,10 @@ def _build_observations(
         if obs.status == "entered-in-error":
             continue
 
-        notes = [note for note in [_precision_note(obs.effectiveDateTime)] if note]
+        notes: list[str] = []
+        precision_note = _precision_note(obs.effectiveDateTime)
+        if precision_note:
+            _add_note(notes, data_quality, precision_note, "Observation", obs.id)
         encounter_summary, encounter_reference, resolved = _resolve_encounter_reference(
             obs.encounter, all_encounters
         )

@@ -1,6 +1,20 @@
 import type { MedicationSummary } from "@/types/summary";
 import { CodeLabel } from "@/components/CodeLabel";
-import { UncertaintyNotes } from "@/components/UncertaintyNotes";
+
+export function isMedicationUncertain(medication: MedicationSummary): boolean {
+  return !medication.medication.display_available;
+}
+
+export function MedicationItem({ medication }: { medication: MedicationSummary }) {
+  return (
+    <li>
+      <div className="item-title">
+        <CodeLabel code={medication.medication} />
+      </div>
+      {medication.instructions && <div className="item-meta">{medication.instructions}</div>}
+    </li>
+  );
+}
 
 export function Medications({ medications }: { medications: MedicationSummary[] }) {
   return (
@@ -11,13 +25,7 @@ export function Medications({ medications }: { medications: MedicationSummary[] 
       ) : (
         <ul className="item-list">
           {medications.map((medication) => (
-            <li key={medication.id}>
-              <div className="item-title">
-                <CodeLabel code={medication.medication} />
-              </div>
-              {medication.instructions && <div className="item-meta">{medication.instructions}</div>}
-              <UncertaintyNotes notes={medication.uncertainty_notes} />
-            </li>
+            <MedicationItem key={medication.id} medication={medication} />
           ))}
         </ul>
       )}
