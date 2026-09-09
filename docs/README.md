@@ -49,6 +49,125 @@ The data intentionally contains production-like data-quality issues, including:
 
 The data is treated as having uncertain provenance.
 
+### Identified Data-Quality Issues
+
+A review of the Bundle surfaced further issues beyond those listed above. They
+are recorded here because they directly shape the normalization rules.
+
+**Patient reconciliation**
+
+- `patient-001` and `patient-002` disagree on middle initial, birth-date
+  precision, MRN, phone number (value and use), and address formatting.
+- Neither Patient carries `meta.lastUpdated`, so there is no recency-based way
+  to arbitrate between them.
+- Neither Patient carries a `Patient.link` element, which is FHIR's mechanism
+  for asserting a duplicate or replaced record. The Bundle therefore contains
+  no explicit assertion that the two records describe the same person.
+
+**Cross-patient data**
+
+- `medicationrequest-003` is an `active` medication belonging to `patient-002`,
+  not to the canonical patient. It is the only clinical resource attached to
+  the duplicate record.
+
+**Unresolved references**
+
+- `condition-003` references `Encounter/encounter-099`, which is absent.
+- `observation-003` references `Practitioner/practitioner-999`, which is absent.
+- No `Practitioner`, `Organization`, or `Medication` resources exist in the
+  Bundle at all.
+- Entries are identified by `fullUrl` values such as `urn:uuid:patient-001`,
+  while all references are relative (`Patient/patient-001`). Reference
+  resolution is therefore performed on resource type and id.
+
+**Coding integrity**
+
+- `allergyintolerance-001` declares the SNOMED CT system but carries the code
+  `7980-2`, which is not a well-formed SNOMED CT identifier. The system/code
+  pair is internally inconsistent even though a display value is present.
+- Conditions are coded in ICD-10-CM only, with no SNOMED CT equivalent.
+
+**Date precision**
+
+- Several values are year-only: `2015`, `2016`, `2019`, `2020`, `2022`.
+- Some timestamps fall exactly on midnight UTC (`2018-01-01T00:00:00Z`,
+  `2021-06-02T00:00:00Z`), which may indicate coarser precision that was
+  already inflated upstream.
+- A laboratory result (`observation-002`) carries year-only precision.
+
+**Missing elements**
+
+- Only one of four Observations has a `category`, so relevant observations
+  cannot be selected by category alone.
+- No Condition has a `category`, so problem-list entries cannot be
+  distinguished from encounter diagnoses.
+- No Observation has a `referenceRange` or `interpretation`, so nothing in the
+  data itself marks a value as abnormal.
+- No MedicationRequest has a `requester`.
+- `medicationrequest-002` is `stopped` with no `statusReason` and no end date.
+- No AllergyIntolerance has a `type` or `category`.
+
+**Structural conformance**
+
+- `condition-002` and `allergyintolerance-002` both carry a `clinicalStatus`
+  alongside a `verificationStatus` of `entered-in-error`. FHIR invariants
+  `con-5` and `ait-2` prohibit this, so the loader must be deliberately lenient
+  rather than strictly validating.
+- `Bundle.total` is present on a `collection` Bundle, where it is not
+  meaningful.
+- The `urn:uuid:` prefixes are not RFC 4122 UUIDs.
+
+**Privacy**
+
+- `patient-001` carries an SSN identifier. It is partially masked, has no
+  clinical value in a snapshot view, and is therefore not exposed by the API.
+
+**Temporal consistency**
+
+- `observation-003` is timestamped two minutes before the start of
+  `encounter-001` and carries no encounter reference.
+- `medicationrequest-001` is authored after `encounter-001` ends while still
+  referencing it.
+- `Bundle.timestamp` is later than every clinical event it contains, so
+  "recent" cannot be derived from the current date.
+
+---
+
+## Implementation Status
+
+This section reflects the actual state of the repository, not the intended end state.
+
+| Area | Status |
+|---|---|
+| Project structure and Python environment | Complete |
+| Dependency pinning (`requirements.txt`) | Complete |
+| FHIR Bundle loader (`services/loader.py`) | Complete — loads all 17 entries |
+| FastAPI application boots, `/docs` available | Complete |
+| Input data-quality analysis | Complete — see *Identified Data-Quality Issues* |
+| FHIR Pydantic models (`models/fhir.py`) | Not started |
+| Summary response models (`models/summary.py`) | Not started |
+| Normalizer / reconciliation (`services/normalizer.py`) | Not started |
+| Patient summary endpoint (`api/patients.py`) | Not started |
+| Backend tests | Not started |
+| Frontend (Next.js) | Not started |
+
+### Verified working
+
+- `GET /` returns `200`.
+- `GET /docs` returns `200` (FastAPI interactive documentation).
+- The loader resolves the Bundle path independently of the current working
+  directory and parses all 17 entries, matching the Bundle's declared `total`.
+
+### Immediate next steps
+
+1. Resolve the open normalization questions (see *Open Decisions*).
+2. Implement the FHIR Pydantic models.
+3. Implement the normalizer, with tests written alongside each safety rule.
+4. Add the patient summary endpoint.
+5. Enable CORS for the Next.js development origin, so the frontend can
+   consume the API from a different port.
+6. Scaffold and build the frontend snapshot.
+
 ---
 
 ## Architecture
@@ -114,10 +233,13 @@ The UI is intentionally designed to be simple and scannable rather than highly p
 
 ### Backend
 
-- Python
-- FastAPI
-- Pydantic
-- pytest
+Versions below are the ones the project is currently developed and verified against.
+
+- Python 3.14
+- FastAPI 0.141.1
+- Pydantic 2.13.5
+- Uvicorn 0.52.4
+- pytest 9.1.1
 
 ### Frontend
 
@@ -127,39 +249,56 @@ The UI is intentionally designed to be simple and scannable rather than highly p
 
 No database is required for this assessment.
 
+Exact pinned versions are recorded in `requirements.txt`.
+
 ---
 
 ## Project Structure
 
-The intended structure is:
+The current structure is:
 
 ```text
-project/
+Clinical Snapshot/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py
-│   │   ├── models/
-│   │   │   ├── fhir.py
-│   │   │   └── summary.py
-│   │   ├── services/
-│   │   │   ├── loader.py
-│   │   │   └── normalizer.py
-│   │   └── api/
-│   │       └── patients.py
-│   └── tests/
+│   │   ├── main.py               FastAPI application
+│   │   ├── api/                  HTTP routes
+│   │   ├── models/               Pydantic models (FHIR + summary)
+│   │   └── services/
+│   │       └── loader.py         Reads the raw FHIR Bundle
+│   └── tests/                    Safety-focused backend tests
 │
-├── frontend/
-│   ├── app/
-│   └── components/
+├── frontend/                     Next.js clinical snapshot (to be built)
 │
-├── data/
-│   └── scenario1_fhir_bundle[78].json
+├── docs/
+│   ├── README.md                 This document
+│   ├── CLAUDE_PROJECT_GUIDE.md   Implementation guide
+│   └── scenario1_clinical_snapshot_CANDIDATE_1[76].pdf
 │
-├── README.md
-└── AI_USAGE.md
+├── raw_data/
+│   └── scenario1_fhir_bundle[78].json    Provided input, never modified
+│
+├── normalized_data/              Cleaned/normalized output (see below)
+│
+├── requirements.txt
+└── .gitignore
 ```
 
-This structure may be adjusted during implementation if a simpler organization proves more appropriate.
+Files not yet created are listed in *Implementation Status*.
+
+### `raw_data/` and `normalized_data/`
+
+`raw_data/` holds the provided Bundle exactly as supplied. It is treated as
+read-only input and is never edited in place, so the original messy data
+always remains available for comparison.
+
+`normalized_data/` is used to store the cleaned, normalized output as a backup
+or for inspection when needed.
+
+Importantly, `raw_data/` remains the single source of truth at runtime: the API
+normalizes the Bundle in memory on each request rather than reading from
+`normalized_data/`. This means a stored normalized file can never silently
+become stale clinical data being served to the frontend.
 
 ---
 
@@ -470,25 +609,68 @@ The implementation follows these principles:
 
 # Running the Application
 
-> This section will be completed once the backend and frontend setup are implemented.
+Requires Python 3.13 or newer. The commands below are run from the project root
+unless stated otherwise.
+
+## Environment setup
+
+Create and activate a virtual environment, then install the dependencies.
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+macOS / Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Backend
 
-```text
-TODO
+The application module is `app.main`, resolved relative to the `backend`
+directory. The server must therefore be started from `backend`:
+
+```bash
+cd backend
+uvicorn app.main:app --reload
 ```
 
-## Frontend
+The API is then available at:
 
 ```text
-TODO
+http://127.0.0.1:8000/          Service check
+http://127.0.0.1:8000/docs      FastAPI interactive documentation
+```
+
+Once implemented, the patient summary endpoint will be available at:
+
+```text
+http://127.0.0.1:8000/api/patients/patient-001/summary
 ```
 
 ## Tests
 
-```text
-TODO
+Tests are also run from the `backend` directory, so that `app` resolves
+correctly on the import path:
+
+```bash
+cd backend
+pytest
 ```
+
+No tests exist yet; see *Implementation Status*.
+
+## Frontend
+
+Not yet scaffolded. Instructions will be added once the Next.js application
+exists.
 
 ---
 
@@ -508,6 +690,49 @@ The following are not required for the core assessment:
 - Full FHIR R4 implementation
 
 The priority is correctness, safe data handling, a working API, a working frontend, meaningful tests, and clear documentation.
+
+---
+
+# Open Decisions
+
+The following questions materially affect the normalizer and are recorded here
+rather than being resolved silently in code. Each will be settled, implemented,
+and documented with its rationale before the normalizer is considered complete.
+
+**1. The active medication on the non-canonical patient.**
+`medicationrequest-003` is `active` but belongs to `patient-002`. Excluding it
+from the canonical patient's medication list is correct, because attributing it
+would mean silently merging two records that the Bundle never links. However,
+excluding it without trace would hide an active prescription. The current
+intention is to exclude it from Active Medications while reporting it in the
+data-quality section as an active medication on an unmerged duplicate record.
+
+**2. Suspected false precision.**
+Values such as `2018-01-01T00:00:00Z` are valid full timestamps, but midnight
+on the first of January is a common artifact of a year-only value being padded
+upstream. The choice is between presenting the data literally and flagging it
+as suspected coarser precision.
+
+**3. The reference point for "recent" encounters.**
+`Bundle.timestamp` is later than every event in the Bundle, and the real
+current date is later still. Anchoring recency to the current date would cause
+the meaning of "recent" to drift over time. Options are to anchor to
+`Bundle.timestamp`, to omit a recency window entirely, or to label encounters
+with their age relative to a stated reference point.
+
+**4. The malformed allergy coding.**
+`allergyintolerance-001` pairs the SNOMED CT system with a code that is not
+SNOMED-shaped, while supplying the display "Penicillin". The choice is between
+trusting the supplied display and additionally marking the coding as suspect.
+
+**5. Possible duplicate allergy.**
+`allergyintolerance-003` carries a SNOMED-shaped code with no display, and may
+denote a concept overlapping `allergyintolerance-001`. Its meaning is not
+inferred, since doing so would amount to guessing a display value. Both failure
+modes carry risk: an unnoticed duplicate clutters the allergy list, while a
+wrongly assumed duplicate could suppress a distinct allergy. Verification would
+require a terminology service, which is out of scope here, so both entries are
+retained and the uncertainty is surfaced.
 
 ---
 
@@ -567,7 +792,8 @@ AI_USAGE.md
 
 ## Backend
 
-- [ ] Bundle loads successfully.
+- [x] Bundle loads successfully.
+- [x] FastAPI application runs and `/docs` is available.
 - [ ] Required FHIR resources are modeled with Pydantic.
 - [ ] Patient reconciliation is implemented and documented.
 - [ ] Invalid/error statuses are handled.
@@ -576,7 +802,8 @@ AI_USAGE.md
 - [ ] Broken references are handled safely.
 - [ ] Date precision is preserved.
 - [ ] Patient summary response works.
-- [ ] FastAPI endpoint works.
+- [ ] Patient summary endpoint is exposed.
+- [ ] CORS is configured for the frontend origin.
 - [ ] Backend tests pass.
 
 ## Frontend
@@ -593,11 +820,11 @@ AI_USAGE.md
 
 ## Submission
 
-- [ ] README.md
+- [x] README.md
+- [x] Provided FHIR data
 - [ ] AI_USAGE.md
 - [ ] Backend
 - [ ] Frontend
-- [ ] Provided FHIR data
 - [ ] Tests
 - [ ] No secrets or API keys committed
 - [ ] Application can be run using the documented instructions
