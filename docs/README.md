@@ -148,8 +148,8 @@ This section reflects the actual state of the repository, not the intended end s
 | FHIR Pydantic models (`models/fhir.py`) | Complete — `Patient`, `Encounter`, `Condition`, `Observation`, `MedicationRequest`, `AllergyIntolerance`; all 17 Bundle entries validate |
 | Summary response models (`models/summary.py`) | Complete — `PatientSummaryResponse` and per-section models, including `uncertainty_notes` and unresolved-reference fields |
 | Normalizer / reconciliation (`services/normalizer.py`) | Complete — implements all Resolved Decisions and the status-handling table |
-| Patient summary endpoint (`api/patients.py`) | Not started |
-| Backend tests | Complete for the normalizer — 19 tests covering the documented safety cases, all passing against the real Bundle |
+| Patient summary endpoint (`api/patients.py`) | Complete — `GET /api/patients/{patient_id}/summary`, 404 for unknown patients, CORS enabled for the Next.js dev origin |
+| Backend tests | Complete — 24 tests (normalizer + API), all passing against the real Bundle and a live server smoke test |
 | Frontend (Next.js) | Not started |
 
 ### Verified working
@@ -825,10 +825,10 @@ AI_USAGE.md
 - [x] Missing coding displays are handled safely.
 - [x] Broken references are handled safely.
 - [x] Date precision is preserved.
-- [ ] Patient summary response works. (normalizer produces it directly; not yet wired to an endpoint)
-- [ ] Patient summary endpoint is exposed.
-- [ ] CORS is configured for the frontend origin.
-- [x] Backend tests pass. (19/19 for the normalizer; endpoint tests still to come)
+- [x] Patient summary response works.
+- [x] Patient summary endpoint is exposed.
+- [x] CORS is configured for the frontend origin.
+- [x] Backend tests pass. (24/24: normalizer + API)
 
 ## Frontend
 
