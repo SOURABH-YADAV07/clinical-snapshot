@@ -1,10 +1,16 @@
+/* "Lush forest" palette: #2E6F40, #CFFFDC, #68BA7F, #253D2C.
+   Lighter hues drive backgrounds/subtle accents, darker hues drive
+   text/primary actions. Warning/danger tokens stay amber/red on purpose —
+   this app's core job is making uncertainty visually distinct, and folding
+   those into an all-green palette would undo that contrast. */
 :root {
-  --background: #f5f6f8;
+  --background: #edfbf1;
   --surface: #ffffff;
-  --foreground: #14181f;
-  --muted: #5b6472;
-  --border: #dfe3e8;
-  --accent: #2f6fed;
+  --foreground: #253d2c;
+  --muted: #5c7566;
+  --border: #cfeeda;
+  --accent: #2e6f40;
+  --accent-soft: #68ba7f;
   --warning-bg: #fff6e0;
   --warning-border: #e8c766;
   --warning-text: #7a5b00;
@@ -13,12 +19,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #14171c;
-    --surface: #1b1f27;
-    --foreground: #eef1f5;
-    --muted: #a0a8b4;
-    --border: #2c313b;
-    --accent: #6d9dff;
+    --background: #16241c;
+    --surface: #1e3227;
+    --foreground: #dff8e6;
+    --muted: #8fb39d;
+    --border: #2c4433;
+    --accent: #68ba7f;
+    --accent-soft: #2e6f40;
     --warning-bg: #332a06;
     --warning-border: #7a5b00;
     --warning-text: #f0cf6b;
@@ -211,4 +218,165 @@ a {
 .error {
   color: var(--danger-text);
   padding: 2rem 0;
+}
+
+.page > h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.patient-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.patient-card {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patient-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 1px 8px color-mix(in srgb, var(--accent-soft) 35%, transparent);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.back-link {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.navbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.navbar-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  color: var(--foreground);
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.navbar-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.navbar-link:hover {
+  color: var(--foreground);
+  background: var(--border);
+}
+
+.navbar-link.active {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.hero {
+  min-height: calc(100vh - 12rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.25rem;
+  padding: 2rem 1rem;
+}
+
+.hero-title {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 700;
+  color: var(--foreground);
+  animation: fade-slide-up 0.6s ease both;
+}
+
+.hero-subtitle {
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  animation: fade-slide-up 0.6s ease both;
+  animation-delay: 0.1s;
+}
+
+.hero-cta {
+  display: inline-block;
+  background: var(--accent);
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  animation: fade-slide-up 0.6s ease both;
+  animation-delay: 0.2s;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.hero-cta:hover {
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-title,
+  .hero-subtitle,
+  .hero-cta {
+    animation: none;
+  }
 }
