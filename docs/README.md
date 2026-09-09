@@ -150,7 +150,7 @@ This section reflects the actual state of the repository, not the intended end s
 | Normalizer / reconciliation (`services/normalizer.py`) | Complete — implements all Resolved Decisions and the status-handling table |
 | Patient summary endpoint (`api/patients.py`) | Complete — `GET /api/patients/{patient_id}/summary`, 404 for unknown patients, CORS enabled for the Next.js dev origin |
 | Backend tests | Complete — 24 tests (normalizer + API), all passing against the real Bundle and a live server smoke test |
-| Frontend (Next.js) | Not started |
+| Frontend (Next.js) | Complete — TypeScript + App Router, all 7 sections, wired to the API; lint, build, and a live golden-path + error-path check all pass |
 
 ### Verified working
 
@@ -269,7 +269,13 @@ Clinical Snapshot/
 │   │       └── loader.py         Reads the raw FHIR Bundle
 │   └── tests/                    Safety-focused backend tests
 │
-├── frontend/                     Next.js clinical snapshot (to be built)
+├── frontend/                     Next.js (App Router, TypeScript) clinical snapshot
+│   └── src/
+│       ├── app/                  Root layout, page, global styles
+│       ├── components/           PatientHeader, Problems, Medications, Allergies,
+│       │                         Encounters, Observations, DataQuality
+│       ├── lib/                  API client
+│       └── types/                TypeScript types mirroring the summary response
 │
 ├── docs/
 │   ├── README.md                 This document
@@ -670,8 +676,19 @@ No tests exist yet; see *Implementation Status*.
 
 ## Frontend
 
-Not yet scaffolded. Instructions will be added once the Next.js application
-exists.
+The frontend is a Next.js (App Router, TypeScript) app in `frontend/`. It fetches
+the patient summary server-side on each request, so it always reflects a live
+call to the backend rather than a cached/stale copy.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app is then available at `http://localhost:3000`. It expects the backend
+to be running at `http://127.0.0.1:8000` by default; override this by copying
+`.env.local.example` to `.env.local` and setting `NEXT_PUBLIC_API_BASE_URL`.
 
 ---
 
@@ -832,15 +849,15 @@ AI_USAGE.md
 
 ## Frontend
 
-- [ ] Patient demographics are displayed.
-- [ ] Active problems are displayed.
-- [ ] Active medications are displayed.
-- [ ] Allergies are displayed.
-- [ ] Recent/relevant encounters are displayed.
-- [ ] Relevant observations are displayed.
-- [ ] Uncertainty is visible.
-- [ ] Missing information is not fabricated.
-- [ ] No major console/build errors.
+- [x] Patient demographics are displayed.
+- [x] Active problems are displayed.
+- [x] Active medications are displayed.
+- [x] Allergies are displayed.
+- [x] Recent/relevant encounters are displayed.
+- [x] Relevant observations are displayed.
+- [x] Uncertainty is visible. (per-item uncertainty notes, unresolved-reference flags, unconfirmed-allergy styling, Data Quality section)
+- [x] Missing information is not fabricated. (`CodeLabel` shows "Display name unavailable" rather than guessing)
+- [x] No major console/build errors. (`next lint` and `next build` both clean)
 
 ## Submission
 
