@@ -67,6 +67,32 @@ class FHIRAddress(BaseModel):
     postalCode: str | None = None
 
 
+class FHIRCoding(BaseModel):
+    """FHIR coding information."""
+
+    model_config = ConfigDict(extra="allow")
+
+    system: str | None = None
+    code: str | None = None
+    display: str | None = None
+
+
+class FHIRExtension(BaseModel):
+    """FHIR extension. Only the shape needed to read US Core race/ethnicity
+    (nested sub-extensions carrying an OMB category coding and a
+    plain-language "text" string) is modeled — see normalizer.py."""
+
+    model_config = ConfigDict(extra="allow")
+
+    url: str | None = None
+    valueString: str | None = None
+    valueCoding: FHIRCoding | None = None
+    extension: list["FHIRExtension"] | None = None
+
+
+FHIRExtension.model_rebuild()
+
+
 class FHIRPatient(FHIRResource):
     """FHIR Patient fields needed for the clinical snapshot."""
 
@@ -77,16 +103,7 @@ class FHIRPatient(FHIRResource):
     birthDate: str | None = None
     address: list[FHIRAddress] | None = None
     active: bool | None = None
-
-
-class FHIRCoding(BaseModel):
-    """FHIR coding information."""
-
-    model_config = ConfigDict(extra="allow")
-
-    system: str | None = None
-    code: str | None = None
-    display: str | None = None
+    extension: list[FHIRExtension] | None = None
 
 
 class FHIRCodeableConcept(BaseModel):

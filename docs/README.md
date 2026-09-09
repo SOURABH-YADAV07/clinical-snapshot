@@ -14,7 +14,7 @@ The priority throughout is **clinical/data safety and honest communication of un
 - Exposes a normalized patient-summary API (FastAPI) and a one-page clinical snapshot (Next.js/TypeScript).
 - Supports uploading additional FHIR Bundles from the frontend, beyond the assessment's original single-bundle scope.
 
-The provided data (`raw_data/scenario1_fhir_bundle[78].json`, 17 entries) intentionally contains production-like problems: two conflicting `Patient` records for the same apparent person, entered-in-error/inactive resources, missing coding displays, references to resources absent from the Bundle, and dates at varying precision. See *Normalization & Reconciliation Decisions*.
+The provided data (`raw_data/scenario1_fhir_bundle[78].json`, 17 entries) intentionally contains production-like problems: two conflicting `Patient` records for the same apparent person, entered-in-error/inactive resources, missing coding displays, references to resources absent from the Bundle, dates at varying precision, and a US Core race/ethnicity extension. See *Normalization & Reconciliation Decisions*.
 
 ---
 
@@ -94,7 +94,7 @@ Verify: `http://localhost:3000` loads the welcome page, and `/patients` shows th
 cd backend
 pytest
 ```
-48 tests (normalizer, loader, API), all passing.
+50 tests (normalizer, loader, API), all passing.
 
 **Configuration.** The frontend expects the backend at `http://127.0.0.1:8000` by default. To point it elsewhere, copy `frontend/.env.local.example` to `frontend/.env.local` and set `NEXT_PUBLIC_API_BASE_URL`.
 
@@ -139,6 +139,8 @@ Sample multi-patient Bundles for exercising the upload feature are in `test-data
 
 **Date precision.** Preserved exactly as given — `2020` is never turned into `2020-01-01`. Datetimes landing on exact midnight UTC are additionally flagged as suspected coarser precision.
 
+**US Core extensions.** `Patient.extension` carries US Core race/ethnicity extensions (a coded OMB category plus a plain-language `text` sub-extension). The `text` value is surfaced as-is on the demographics header when present, falling back to the coding's own display if `text` is absent; nothing is shown, and nothing inferred, when the extension itself is absent (e.g. `patient-002`). Any other extension is preserved by lenient parsing but unused — only race/ethnicity are modeled.
+
 **Uncertainty.** Surfaced, not hidden. Items with a missing display, an unresolved reference, or (for allergies) a non-confirmed verification status are shown separately from fully-known data — in their own "Incomplete or Unverified Items" section — rather than mixed into the main list with only a small text difference to notice. Routing is driven entirely by field values, never by resource id, so it responds correctly as source data changes.
 
 ---
@@ -160,7 +162,7 @@ Sample multi-patient Bundles for exercising the upload feature are in `test-data
 
 ## Testing
 
-Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 48 tests total; run with `pytest` from `backend/`.
+Focused on data-safety and normalization behavior rather than exhaustive coverage: status-based exclusion for each resource type, missing-display handling, unresolved-reference handling, date-precision preservation, canonical-patient selection, and cross-patient attribution — plus loader (multi-file merge, malformed-file handling) and API (validation, 404s, CORS) tests. 50 tests total; run with `pytest` from `backend/`.
 
 ---
 

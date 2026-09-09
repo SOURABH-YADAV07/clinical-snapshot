@@ -12,6 +12,8 @@ export interface PatientSummary {
   gender: string | null;
   phone: string | null;
   address: string | null;
+  race: string | null;
+  ethnicity: string | null;
   is_canonical: boolean;
   note: string | null;
 }

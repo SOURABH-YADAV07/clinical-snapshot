@@ -15,6 +15,7 @@
   --warning-border: #e8c766;
   --warning-text: #7a5b00;
   --danger-text: #b3261e;
+  --name-highlight: #14291c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +31,7 @@
     --warning-border: #7a5b00;
     --warning-text: #f0cf6b;
     --danger-text: #ff8c85;
+    --name-highlight: #eaffe9;
   }
 
   html {
@@ -110,9 +112,14 @@ a {
 }
 
 .patient-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
+  display: inline-block;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--name-highlight);
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--accent-soft);
   text-align: center;
 }
 
@@ -124,13 +131,15 @@ a {
 
 .patient-header dl {
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.75rem;
 }
 
 .patient-header dl > div {
   display: flex;
+  flex: 0 1 180px;
   flex-direction: column;
   align-items: center;
   justify-content: center;

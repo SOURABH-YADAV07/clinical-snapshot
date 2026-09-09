@@ -74,6 +74,12 @@ def _canonical_status(patient_id: str) -> tuple[bool, str | None]:
 _MIDNIGHT_UTC_RE = re.compile(r"T00:00:00Z$")
 _SNOMED_SHAPE_RE = re.compile(r"^\d{6,18}$")
 
+# US Core extension URLs this app reads (see docs/README.md, "Normalization
+# & Reconciliation Decisions"). Only these two are modeled; any other
+# extension on the resource is preserved by extra="allow" but unused.
+_US_CORE_RACE_URL = "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
+_US_CORE_ETHNICITY_URL = "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+
 _MODEL_BY_RESOURCE_TYPE = {
     "Patient": FHIRPatient,
     "Encounter": FHIREncounter,
@@ -251,6 +257,25 @@ def _age_days(start: str | None, bundle_timestamp: str | None) -> int | None:
     return (ref_dt - start_dt).days
 
 
+def _us_core_text(patient: FHIRPatient, extension_url: str) -> str | None:
+    # Reads the plain-language "text" sub-extension US Core defines for
+    # exactly this purpose (e.g. "White", "Not Hispanic or Latino"); falls
+    # back to the OMB category coding's own display if "text" is absent.
+    # Never inferred or guessed when neither is present.
+    if not patient.extension:
+        return None
+    for ext in patient.extension:
+        if ext.url != extension_url or not ext.extension:
+            continue
+        for sub in ext.extension:
+            if sub.url == "text" and sub.valueString:
+                return sub.valueString
+        for sub in ext.extension:
+            if sub.url == "ombCategory" and sub.valueCoding and sub.valueCoding.display:
+                return sub.valueCoding.display
+    return None
+
+
 def _build_patient(
     patient: FHIRPatient, is_canonical: bool = True, note: str | None = None
 ) -> PatientSummary:
@@ -280,6 +305,8 @@ def _build_patient(
         gender=patient.gender,
         phone=phone,
         address=address,
+        race=_us_core_text(patient, _US_CORE_RACE_URL),
+        ethnicity=_us_core_text(patient, _US_CORE_ETHNICITY_URL),
         is_canonical=is_canonical,
         note=note,
     )

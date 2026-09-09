@@ -59,6 +59,17 @@ def test_canonical_patient_demographics(summary):
     assert summary.patient.birth_date == "1958-03-12"
 
 
+def test_us_core_race_and_ethnicity_extracted(summary):
+    assert summary.patient.race == "White"
+    assert summary.patient.ethnicity == "Not Hispanic or Latino"
+
+
+def test_us_core_extension_absent_yields_none_not_a_crash(bundle):
+    duplicate_summary = build_patient_summary(bundle, "patient-002")
+    assert duplicate_summary.patient.race is None
+    assert duplicate_summary.patient.ethnicity is None
+
+
 def test_entered_in_error_encounter_excluded(summary):
     assert by_id(summary.encounters, "encounter-002") is None
 

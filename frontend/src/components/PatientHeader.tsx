@@ -44,6 +44,18 @@ export function PatientHeader({ patient }: { patient: PatientSummary }) {
             <dd>{patient.address}</dd>
           </div>
         )}
+        {patient.race && (
+          <div>
+            <dt>Race</dt>
+            <dd>{patient.race}</dd>
+          </div>
+        )}
+        {patient.ethnicity && (
+          <div>
+            <dt>Ethnicity</dt>
+            <dd>{patient.ethnicity}</dd>
+          </div>
+        )}
       </dl>
     </section>
   );
