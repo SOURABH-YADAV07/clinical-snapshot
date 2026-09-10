@@ -1,0 +1,691 @@
+{
+  "resourceType": "Bundle",
+  "id": "synthetic-15-patient-bundle",
+  "type": "collection",
+  "timestamp": "2026-08-20T09:00:00Z",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:patient-201",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-201",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80001" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Alvarez", "given": ["Sofia"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2001", "use": "home" }],
+        "gender": "female",
+        "birthDate": "1982-03-09",
+        "address": [{ "line": ["120 Harbor View"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-201",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-201",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }] }],
+        "subject": { "reference": "Patient/patient-201" },
+        "period": { "start": "2026-06-02T11:00:00Z", "end": "2026-06-02T11:30:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-201",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-201",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.91", "display": "Unspecified atrial fibrillation" }] },
+        "subject": { "reference": "Patient/patient-201" },
+        "encounter": { "reference": "Encounter/encounter-201" },
+        "onsetDateTime": "2023-05-06"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-201",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-201",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "1037042", "display": "Apixaban 5 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-201" },
+        "encounter": { "reference": "Encounter/encounter-201" },
+        "authoredOn": "2026-06-02T11:25:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth twice daily" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-216",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-216",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80001-A" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Alvarez", "given": ["Sofia"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2099", "use": "mobile" }],
+        "gender": "female",
+        "birthDate": "1982",
+        "address": [{ "line": ["120 Harbor View Rd"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-216",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-216",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "308191", "display": "Aspirin 81 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-216" },
+        "authoredOn": "2026-07-01T09:00:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth once daily" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-202",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-202",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80002" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Novak", "given": ["Tomas"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2002", "use": "mobile" }],
+        "gender": "male",
+        "birthDate": "1959-12-01",
+        "address": [{ "line": ["7 Ridgeline Rd"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-202",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-202",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.3", "display": "Chronic kidney disease, stage 3" }] },
+        "subject": { "reference": "Patient/patient-202" },
+        "onsetDateTime": "2021"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:observation-202",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "observation-202",
+        "status": "final",
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma" }] },
+        "subject": { "reference": "Patient/patient-202" },
+        "effectiveDateTime": "2026-07-11T08:40:00Z",
+        "valueQuantity": { "value": 1.9, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL" }
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-203",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-203",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80003" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Haddad", "given": ["Layla"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2003", "use": "home" }],
+        "gender": "female",
+        "birthDate": "1996-07-19",
+        "address": [{ "line": ["55 Cranberry Ln"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:allergyintolerance-203",
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergyintolerance-203",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://snomed.info/sct", "code": "764146007", "display": "Allergy to tree nut" }] },
+        "criticality": "high",
+        "patient": { "reference": "Patient/patient-203" },
+        "recordedDate": "2015-09-02"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-203",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-203",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "J30.1", "display": "Allergic rhinitis due to pollen" }] },
+        "subject": { "reference": "Patient/patient-203" },
+        "onsetDateTime": "2020-04-15"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-204",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-204",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80004" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Kowalski", "given": ["Piotr"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2004", "use": "mobile" }],
+        "gender": "male",
+        "birthDate": "1948-05-23",
+        "address": [{ "line": ["300 Lighthouse Dr"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-204",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-204",
+        "status": "entered-in-error",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "subject": { "reference": "Patient/patient-204" },
+        "period": { "start": "2026-02-14T09:00:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-204",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-204",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I50.9", "display": "Heart failure, unspecified" }] },
+        "subject": { "reference": "Patient/patient-204" },
+        "onsetDateTime": "2017-08-30"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-204",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-204",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "314076", "display": "Furosemide 40 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-204" },
+        "authoredOn": "2026-02-14T10:00:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth every morning" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-205",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-205",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80005" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Dubois", "given": ["Camille"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2005", "use": "home" }],
+        "gender": "female",
+        "birthDate": "2003-10-08",
+        "address": [{ "line": ["18 Orchard Path"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-205",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-205",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "G43.909" }] },
+        "subject": { "reference": "Patient/patient-205" },
+        "encounter": { "reference": "Encounter/encounter-missing-205" },
+        "onsetDateTime": "2024"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-206",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-206",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80006" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Adeyemi", "given": ["Tunde"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2006", "use": "mobile" }],
+        "gender": "male",
+        "birthDate": "1977-01-27",
+        "address": [{ "line": ["42 Bayberry St"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-206",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-206",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }] }],
+        "subject": { "reference": "Patient/patient-206" },
+        "period": { "start": "2026-07-28T14:00:00Z", "end": "2026-07-28T14:20:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-206",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-206",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "K57.30", "display": "Diverticulosis of large intestine without perforation or abscess without bleeding" }] },
+        "subject": { "reference": "Patient/patient-206" },
+        "encounter": { "reference": "Encounter/encounter-206" },
+        "onsetDateTime": "2022-12-11"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:observation-206",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "observation-206",
+        "status": "final",
+        "category": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs", "display": "Vital Signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional" }] },
+        "subject": { "reference": "Patient/patient-206" },
+        "encounter": { "reference": "Encounter/encounter-206" },
+        "effectiveDateTime": "2026-07-28T14:05:00Z",
+        "component": [
+          { "code": { "coding": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }] }, "valueQuantity": { "value": 118, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" } },
+          { "code": { "coding": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }] }, "valueQuantity": { "value": 76, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" } }
+        ]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-207",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-207",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80007" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Lindqvist", "given": ["Elin"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2007", "use": "home" }],
+        "gender": "female",
+        "birthDate": "1954-02-17",
+        "address": [{ "line": ["9 Compass Way"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-207",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-207",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M06.9", "display": "Rheumatoid arthritis, unspecified" }] },
+        "subject": { "reference": "Patient/patient-207" },
+        "onsetDateTime": "2014-06-06"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-207",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-207",
+        "status": "stopped",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "6845", "display": "Methotrexate 2.5 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-207" },
+        "authoredOn": "2025",
+        "dosageInstruction": [{ "text": "Take as directed weekly" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-208",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-208",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80008" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Moreau", "given": ["Julien"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2008", "use": "mobile" }],
+        "gender": "male",
+        "birthDate": "1991-11-04",
+        "address": [{ "line": ["63 Anchor Ave"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:allergyintolerance-208",
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergyintolerance-208",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification", "code": "unconfirmed", "display": "Unconfirmed" }] },
+        "code": { "coding": [{ "system": "http://snomed.info/sct", "code": "91930004" }] },
+        "criticality": "low",
+        "patient": { "reference": "Patient/patient-208" },
+        "recordedDate": "2026"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-208",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-208",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "L40.0", "display": "Psoriasis vulgaris" }] },
+        "subject": { "reference": "Patient/patient-208" },
+        "onsetDateTime": "2019-02-28"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-209",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-209",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80009" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Costa", "given": ["Beatriz"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2009", "use": "home" }],
+        "gender": "female",
+        "birthDate": "1963-08-13",
+        "address": [{ "line": ["27 Seabreeze Ct"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-209",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-209",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }] }],
+        "subject": { "reference": "Patient/patient-209" },
+        "period": { "start": "2026-05-19T10:00:00Z", "end": "2026-05-19T10:30:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-209",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-209",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E66.9", "display": "Obesity, unspecified" }] },
+        "subject": { "reference": "Patient/patient-209" },
+        "encounter": { "reference": "Encounter/encounter-209" },
+        "onsetDateTime": "2020-01-15"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-209",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-209",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861007", "display": "Metformin 500 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-209" },
+        "encounter": { "reference": "Encounter/encounter-209" },
+        "authoredOn": "2026-05-19T10:25:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth twice daily with meals" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-210",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-210",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80010" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Ibrahim", "given": ["Zainab"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2010", "use": "mobile" }],
+        "gender": "female",
+        "birthDate": "1999-04-30",
+        "address": [{ "line": ["81 Pinegrove Rd"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-210",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-210",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "inactive", "display": "Inactive" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "entered-in-error", "display": "Entered in Error" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "J06.9", "display": "Acute upper respiratory infection, unspecified" }] },
+        "subject": { "reference": "Patient/patient-210" },
+        "onsetDateTime": "2026-01-10"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-210b",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-210b",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "F32.9", "display": "Major depressive disorder, single episode, unspecified" }] },
+        "subject": { "reference": "Patient/patient-210" },
+        "onsetDateTime": "2023-09-09"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-211",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-211",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80011" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Petrenko", "given": ["Mykola"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2011", "use": "home" }],
+        "gender": "male",
+        "birthDate": "1970-06-21",
+        "address": [{ "line": ["15 Windward Ln"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-211",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-211",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "H25.9", "display": "Unspecified age-related cataract" }] },
+        "subject": { "reference": "Patient/patient-211" },
+        "onsetDateTime": "2022-03-17"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:allergyintolerance-211",
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergyintolerance-211",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://snomed.info/sct", "code": "294872001", "display": "Allergy to iodine" }] },
+        "criticality": "high",
+        "patient": { "reference": "Patient/patient-211" },
+        "recordedDate": "2011-07-07"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-212",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-212",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80012" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Nakamura", "given": ["Yuki"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2012", "use": "mobile" }],
+        "gender": "female",
+        "birthDate": "1986-09-26",
+        "address": [{ "line": ["50 Tidewater Ter"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-212",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-212",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }] }],
+        "subject": { "reference": "Patient/patient-212" },
+        "period": { "start": "2026-08-05T09:30:00Z", "end": "2026-08-05T09:55:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-212",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-212",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E03.9", "display": "Hypothyroidism, unspecified" }] },
+        "subject": { "reference": "Patient/patient-212" },
+        "encounter": { "reference": "Encounter/encounter-212" },
+        "onsetDateTime": "2016-10-10T00:00:00Z"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:observation-212",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "observation-212",
+        "status": "final",
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "3016-3", "display": "Thyrotropin [Units/volume] in Serum or Plasma" }] },
+        "subject": { "reference": "Patient/patient-212" },
+        "encounter": { "reference": "Encounter/encounter-212" },
+        "effectiveDateTime": "2026-08-05T09:45:00Z",
+        "valueQuantity": { "value": 3.1, "unit": "mIU/L", "system": "http://unitsofmeasure.org", "code": "m[IU]/L" }
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-213",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-213",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80013" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Osei", "given": ["Kwame"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2013", "use": "home" }],
+        "gender": "male",
+        "birthDate": "1945-01-05",
+        "address": [{ "line": ["6 Quarterdeck Sq"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-213",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-213",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I63.9", "display": "Cerebral infarction, unspecified" }] },
+        "subject": { "reference": "Patient/patient-213" },
+        "onsetDateTime": "2015-12-25"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-213",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-213",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "243670", "display": "Clopidogrel 75 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-213" },
+        "authoredOn": "2026-03-11T08:00:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth once daily" }]
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-214",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-214",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80014" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Rossi", "given": ["Giulia"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2014", "use": "mobile" }],
+        "gender": "female",
+        "birthDate": "1994-05-17",
+        "address": [{ "line": ["73 Fisherman's Row"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-214",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-214",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "K58.9", "display": "Irritable bowel syndrome without diarrhea" }] },
+        "subject": { "reference": "Patient/patient-214" },
+        "onsetDateTime": "2021-11-19"
+      }
+    },
+
+    {
+      "fullUrl": "urn:uuid:patient-215",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-215",
+        "identifier": [{ "system": "http://centaurihealth.example.org/mrn", "value": "MRN-80015" }],
+        "active": true,
+        "name": [{ "use": "official", "family": "Larsen", "given": ["Freja"] }],
+        "telecom": [{ "system": "phone", "value": "555-330-2015", "use": "home" }],
+        "gender": "female",
+        "birthDate": "1962",
+        "address": [{ "line": ["29 Starboard Ave"], "city": "Fairhaven", "state": "MA", "postalCode": "02719" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:encounter-215",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-215",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+        "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }] }],
+        "subject": { "reference": "Patient/patient-215" },
+        "period": { "start": "2026-04-09T13:00:00Z", "end": "2026-04-09T13:15:00Z" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:condition-215",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "condition-215",
+        "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active" }] },
+        "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed" }] },
+        "code": { "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M81.0", "display": "Age-related osteoporosis without current pathological fracture" }] },
+        "subject": { "reference": "Patient/patient-215" },
+        "encounter": { "reference": "Encounter/encounter-215" },
+        "onsetDateTime": "2019-06-06"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:medicationrequest-215",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-215",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "904420", "display": "Alendronate Sodium 70 MG Oral Tablet" }] },
+        "subject": { "reference": "Patient/patient-215" },
+        "encounter": { "reference": "Encounter/encounter-215" },
+        "authoredOn": "2026-04-09T13:10:00Z",
+        "dosageInstruction": [{ "text": "Take one tablet by mouth once weekly on an empty stomach" }]
+      }
+    }
+  ]
+}

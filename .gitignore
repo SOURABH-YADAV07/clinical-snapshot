@@ -24,9 +24,6 @@ build/
 # original assessment bundle stays tracked, uploads via the UI don't.
 raw_data/uploaded-*.json
 
-# Throwaway synthetic bundles for manually testing the upload feature.
-test-data/
-
 # =================
 # React / Node.js
 # =================
